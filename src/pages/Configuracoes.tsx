@@ -1,0 +1,379 @@
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
+import { User, CreditCard, Users, History, Save, BellRing, Smartphone } from 'lucide-react'
+import useFamilyStore from '@/stores/useFamilyStore'
+import { ChildProfileItem } from '@/components/ChildProfileItem'
+import { AddChildModal } from '@/components/AddChildModal'
+import { useNavigate } from 'react-router-dom'
+import pb from '@/lib/pocketbase/client'
+
+export default function Configuracoes() {
+  const { toast } = useToast()
+  const navigate = useNavigate()
+  const { user, plan, childrenProfiles, essentialChildrenCount, setUser, removeChild, addChild } =
+    useFamilyStore()
+
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false)
+  const [telegramEnabled, setTelegramEnabled] = useState(false)
+  const [telegramId, setTelegramId] = useState('')
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '')
+      setEmail(user.email || '')
+      setPhone(user.phone || '')
+      setWhatsappEnabled(user.whatsapp_enabled || false)
+      setTelegramEnabled(user.telegram_enabled || false)
+      setTelegramId(user.telegram_id || '')
+    } else if (pb.authStore.record) {
+      const r = pb.authStore.record
+      setName(r.name || '')
+      setEmail(r.email || '')
+      setPhone(r.phone || '')
+      setWhatsappEnabled(r.whatsapp_enabled || false)
+      setTelegramEnabled(r.telegram_enabled || false)
+      setTelegramId(r.telegram_id || '')
+    }
+  }, [user])
+
+  const handleSave = async () => {
+    try {
+      if (whatsappEnabled && phone && !phone.startsWith('+')) {
+        toast({
+          title: 'Aviso de Validação',
+          description: 'O número de WhatsApp deve incluir o código do país (ex: +5511999999999).',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (pb.authStore.model?.id) {
+        await pb.collection('Nascimento').update(pb.authStore.model.id, {
+          name,
+          email,
+          phone,
+          whatsapp_enabled: whatsappEnabled,
+          telegram_enabled: telegramEnabled,
+          telegram_id: telegramId,
+        })
+      }
+
+      setUser({
+        ...(user || {}),
+        name,
+        email,
+        phone,
+        whatsapp_enabled: whatsappEnabled,
+        telegram_enabled: telegramEnabled,
+        telegram_id: telegramId,
+      })
+
+      toast({
+        title: 'Configurações Atualizadas',
+        description: 'Suas preferências foram salvas com sucesso.',
+      })
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao salvar',
+        description: e.message || 'Houve um problema ao salvar as configurações.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const isSpecialist =
+    plan === 'Pacote Specialist' ||
+    plan === 'Plano Specialist' ||
+    plan === 'Plano Essencial com Especialista'
+  const getPlanLimit = () => essentialChildrenCount || 2
+
+  const txHistory = [
+    { id: '#1002', date: '15/10/2023', amount: 'R$ 89,90', status: 'Pago' },
+    { id: '#1001', date: '15/09/2023', amount: 'R$ 89,90', status: 'Pago' },
+  ]
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-10">
+      <div>
+        <h2 className="text-3xl font-serif font-bold text-primary">Configurações</h2>
+        <p className="text-muted-foreground mt-1">
+          Gerencie sua conta, perfis familiares e detalhes da assinatura.
+        </p>
+      </div>
+
+      <Tabs defaultValue="perfil" className="w-full">
+        <TabsList className="grid w-full sm:max-w-md grid-cols-2 mb-6 bg-muted/50 h-12 p-1">
+          <TabsTrigger value="perfil" className="data-[state=active]:bg-background">
+            <User className="w-4 h-4 mr-2 hidden sm:block" /> Perfil e Família
+          </TabsTrigger>
+          <TabsTrigger value="faturamento" className="data-[state=active]:bg-background">
+            <CreditCard className="w-4 h-4 mr-2 hidden sm:block" /> Faturamento
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="perfil" className="space-y-6 animate-fade-in">
+          <Card className="shadow-sm">
+            <CardHeader className="bg-muted/20 border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="w-5 h-5 text-secondary" /> Perfil do Responsável
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5 pt-6">
+              <div className="grid sm:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label>Nome Completo</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <Button onClick={handleSave} className="gap-2 shadow-sm">
+                  <Save className="w-4 h-4" /> Salvar Perfil
+                </Button>
+                <Button
+                  onClick={() => navigate('/admin/growth')}
+                  variant="outline"
+                  className="shadow-sm"
+                >
+                  Acessar Painel de Crescimento
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="bg-muted/20 border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <BellRing className="w-5 h-5 text-secondary" /> Alertas e Mensageria
+              </CardTitle>
+              <CardDescription>
+                Configure como deseja receber alertas de riscos críticos e novos relatórios.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <div className="flex flex-col gap-4 p-4 border rounded-xl bg-muted/10 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-emerald-600" /> WhatsApp
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receba alertas instantâneos no seu WhatsApp.
+                    </p>
+                  </div>
+                  <Switch checked={whatsappEnabled} onCheckedChange={setWhatsappEnabled} />
+                </div>
+                {whatsappEnabled && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label>Número do WhatsApp</Label>
+                    <Input
+                      placeholder="+55 11 99999-9999"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      type="tel"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Inclua o código do país obrigatoriamente (ex: +55).
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-4 p-4 border rounded-xl bg-muted/10 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="w-4 h-4 fill-current text-sky-500"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.21-1.12-.32-1.08-.68.02-.19.29-.39.81-.6 3.17-1.38 5.28-2.29 6.33-2.75 3.02-1.32 3.64-1.53 4.05-1.54.09 0 .29.02.4.11.09.07.13.18.15.28 0 .04.01.12 0 .17z" />
+                      </svg>
+                      Telegram
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receba alertas via bot do Telegram.
+                    </p>
+                  </div>
+                  <Switch checked={telegramEnabled} onCheckedChange={setTelegramEnabled} />
+                </div>
+                {telegramEnabled && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label>Chat ID do Telegram</Label>
+                    <Input
+                      placeholder="Ex: 123456789"
+                      value={telegramId}
+                      onChange={(e) => setTelegramId(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Inicie uma conversa com nosso bot e digite /start para obter seu Chat ID.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-4">
+                <Button onClick={handleSave} className="gap-2 shadow-sm">
+                  <Save className="w-4 h-4" /> Salvar Preferências
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="bg-muted/20 border-b pb-4">
+              <CardTitle className="flex items-center justify-between text-lg">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-secondary" /> Perfis Monitorados
+                </div>
+                <span className="text-xs font-normal text-muted-foreground bg-background px-2 py-1 rounded-full border">
+                  {childrenProfiles.length} / {getPlanLimit()} utilizados
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {childrenProfiles.map((child) => (
+                <ChildProfileItem key={child.id} child={child} onRemove={removeChild} />
+              ))}
+              {childrenProfiles.length < getPlanLimit() ? (
+                <AddChildModal
+                  onAdd={async (c) => {
+                    try {
+                      if (pb.authStore.model?.id) {
+                        await pb.collection('children').create({
+                          name: c.name,
+                          parent: pb.authStore.model.id,
+                          platforms: c.platforms,
+                          consent_accepted: c.consentAccepted,
+                          consent_timestamp: c.consentAccepted ? new Date().toISOString() : null,
+                          consent_signature_name: c.signatureName,
+                          monitoring_status: c.consentAccepted ? 'active' : 'inactive',
+                        })
+                      }
+                    } catch (e) {
+                      console.error('Failed to save child to PB', e)
+                    }
+                    addChild(c as any)
+                    toast({ title: 'Perfil Adicionado' })
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-amber-600 font-medium text-center bg-amber-50 p-2 rounded-md border border-amber-100">
+                  Limite de perfis atingido. Faça o upgrade de plano para adicionar mais jovens.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="faturamento" className="space-y-6 animate-fade-in">
+          <div className="grid md:grid-cols-2 gap-6 items-start">
+            <Card className="shadow-sm border-secondary/20 bg-gradient-to-b from-background to-secondary/5 h-full">
+              <CardHeader className="border-b border-secondary/10 pb-4">
+                <CardTitle className="text-lg">Assinatura Atual</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 flex flex-col justify-between h-[calc(100%-60px)] space-y-4">
+                <div>
+                  <p className="font-bold text-2xl text-primary">{plan}</p>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                    {isSpecialist
+                      ? 'Plano Essencial com Especialista ativo. Acesso total à Ponte de Apoio e relatórios avançados de influência.'
+                      : 'Plano Essencial ativo com Agente Autônomo. Faça o upgrade para desbloquear suporte de Especialistas.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => navigate('/planos')}
+                  variant={isSpecialist ? 'outline' : 'default'}
+                  className="w-full shadow-sm mt-auto font-bold"
+                >
+                  {isSpecialist ? 'Ver Planos' : 'Desbloquear Nível Especialista'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm h-full">
+              <CardHeader className="border-b pb-4">
+                <CardTitle className="text-lg">Método de Pagamento</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 border rounded-xl bg-muted/10 shadow-sm">
+                    <div className="bg-background p-2 rounded-md shadow-sm border">
+                      <CreditCard className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm tracking-widest">•••• •••• •••• 4242</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Expira em 12/2026</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" className="w-full text-xs">
+                    Atualizar Cartão
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="shadow-sm">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <History className="w-5 h-5 text-secondary" /> Histórico de Pagamentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fatura</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {txHistory.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="font-medium">{tx.id}</TableCell>
+                      <TableCell className="text-muted-foreground">{tx.date}</TableCell>
+                      <TableCell>{tx.amount}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
+                        >
+                          {tx.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}

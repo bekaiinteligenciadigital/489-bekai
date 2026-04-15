@@ -1,0 +1,1827 @@
+{
+  "generatedAt": "2026-04-15T13:39:20.873Z",
+  "collections": [
+    {
+      "name": "Nascimento",
+      "type": "auth",
+      "apiRules": {
+        "list": "id = @request.auth.id",
+        "view": "id = @request.auth.id",
+        "create": "",
+        "update": "id = @request.auth.id",
+        "delete": "id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["subscriber", "professional"]
+        },
+        {
+          "name": "council_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "specialty",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "clinic_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notifiable_interests",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "whatsapp_enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telegram_enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telegram_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "invite_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "subscription_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["trialing", "active", "past_due", "canceled", "unpaid"]
+        },
+        {
+          "name": "active_plan",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["essencial_familia", "essencial_profissional", "clinical_expert"]
+        },
+        {
+          "name": "external_customer_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "external_subscription_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payment_method_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_renewal_notice",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "attendance_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["Consultório", "Clínica", "Hospital"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''",
+        "CREATE INDEX `idx_nascimento_sub_status` ON `Nascimento` (subscription_status)",
+        "CREATE UNIQUE INDEX `idx_nascimento_invite_code` ON `Nascimento` (invite_code) WHERE invite_code != ''"
+      ]
+    },
+    {
+      "name": "children",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (parent = @request.auth.id || assigned_professional = @request.auth.id)",
+        "view": "@request.auth.id != '' && (parent = @request.auth.id || assigned_professional = @request.auth.id)",
+        "create": "",
+        "update": "@request.auth.id != '' && parent = @request.auth.id",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "birth_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parent",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "Nascimento"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "platforms",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "professional_info",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "monitoring_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["inactive", "pending_credentials", "active", "sync_error"]
+        },
+        {
+          "name": "last_sync_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "consent_accepted",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "consent_timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "consent_signature_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_report_generated",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assigned_professional",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "Nascimento"
+        },
+        {
+          "name": "access_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        }
+      ],
+      "indexes": ["CREATE INDEX `idx_children_access_code` ON `children` (access_code)"]
+    },
+    {
+      "name": "digital_events",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "platform",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "WhatsApp",
+            "Instagram",
+            "TikTok",
+            "YouTube",
+            "Discord",
+            "Roblox",
+            "Outro"
+          ]
+        },
+        {
+          "name": "event_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "content_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "risk_scores",
+          "type": "json",
+          "required": false,
+          "system": false
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "analysis_records",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "view": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "dq_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "behavior_patterns",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "risk_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["Low", "Medium", "High", "Critical"]
+        },
+        {
+          "name": "insights_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "clinical_plans",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "view": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "create": "@request.auth.id != '' && child.assigned_professional = @request.auth.id",
+        "update": "@request.auth.id != '' && child.assigned_professional = @request.auth.id",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pending_approval", "approved", "rejected", "executing", "completed"]
+        },
+        {
+          "name": "suggested_actions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "specialist_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validator",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "Nascimento"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "scientific_library",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "axis",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["Psiquiatria", "Psicologia", "Neurociência", "Psicanálise", "PNL"]
+        },
+        {
+          "name": "clinical_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["Base Clínica", "Camada Complementar", "Diretriz Clínica Principal"]
+        },
+        {
+          "name": "evidence_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["Meta-análise", "RCT", "Coorte", "Relato", "Opinião"]
+        },
+        {
+          "name": "content_link",
+          "type": "url",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "impact_factor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "journal_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "questionnaires",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["draft", "active", "archived"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_questionnaires_code ON questionnaires (code)"]
+    },
+    {
+      "name": "questionnaire_sections",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "questionnaire",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "questionnaires"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "position",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "questionnaire_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "section",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "questionnaire_sections"
+        },
+        {
+          "name": "question_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prompt_text",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "answer_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["single_choice", "multiple_choice", "text", "scale"]
+        },
+        {
+          "name": "required",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "options_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scoring_metadata_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "position",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "assessments",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "view": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "questionnaire",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "questionnaires"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["in_progress", "submitted", "analyzed"]
+        },
+        {
+          "name": "started_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "submitted_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "analyzed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "final_risk_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "safety_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["low", "medium", "high", "critical"]
+        },
+        {
+          "name": "summary_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "assessment_answers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "assessment",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "assessments"
+        },
+        {
+          "name": "questionnaire_item",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "questionnaire_items"
+        },
+        {
+          "name": "answer_value_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "risk_profiles",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "assessment",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "assessments"
+        },
+        {
+          "name": "exposure_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "distortion_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "instability_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "protective_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "clinical_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rationale_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "safety_flags",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "risk_profile",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "risk_profiles"
+        },
+        {
+          "name": "level",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "creators",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "platform",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "WhatsApp",
+            "Instagram",
+            "TikTok",
+            "YouTube",
+            "Discord",
+            "Roblox",
+            "Outro"
+          ]
+        },
+        {
+          "name": "handle",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profile_url",
+          "type": "url",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pending", "analyzed", "blocked"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "content_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "creator",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "creators"
+        },
+        {
+          "name": "url",
+          "type": "url",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "transcript",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["queued", "processing", "completed", "error"]
+        },
+        {
+          "name": "analyzed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "content_risk_scores",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "content_item",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "content_items"
+        },
+        {
+          "name": "anxiety_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nihilism_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sexualization_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "violence_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "self_harm_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "model_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "recommendation_bundles",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "assessment",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "assessments"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["draft", "active"]
+        },
+        {
+          "name": "priority",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["low", "medium", "high"]
+        },
+        {
+          "name": "rationale_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "recommendation_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "bundle",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "recommendation_bundles"
+        },
+        {
+          "name": "item_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["creator_alternative", "habit", "script", "referral"]
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidence_strength",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["meta-analysis", "RCT", "cohort", "opinion"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "url",
+          "type": "url",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resource_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["video", "article", "channel", "site", "book"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "parental_scripts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "bundle",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "recommendation_bundles"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "script_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "context",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "action_plans",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "assessment",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "assessments"
+        },
+        {
+          "name": "bundle",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "recommendation_bundles"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pending", "active", "completed"]
+        },
+        {
+          "name": "summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "action_plan_steps",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "action_plan",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "action_plans"
+        },
+        {
+          "name": "phase",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "checklist_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order_index",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "leads",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "interest_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["investor", "school", "professional", "other"]
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "glossary_terms",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "term",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "definition",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "manual_chapters",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "content",
+          "type": "editor",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "route_reference",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "report_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "view": "@request.auth.id != '' && (child.parent = @request.auth.id || child.assigned_professional = @request.auth.id)",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && child.parent = @request.auth.id",
+        "delete": "@request.auth.id != '' && child.parent = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "child",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "children"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "report_file",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["monthly_summary", "risk_alert", "clinical_deep_dive"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "notifications",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "Nascimento"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_read",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["info", "warning", "urgent"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "patient_invites",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && professional = @request.auth.id",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && professional = @request.auth.id",
+        "update": "@request.auth.id != '' && professional = @request.auth.id",
+        "delete": "@request.auth.id != '' && professional = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "professional",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "Nascimento"
+        },
+        {
+          "name": "patient_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "invite_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pending", "used"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_patient_invites_code ON patient_invites (invite_code)"]
+    }
+  ]
+}
