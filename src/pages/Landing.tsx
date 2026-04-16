@@ -1,8 +1,12 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { DossieModal } from '@/components/landing/DossieModal'
+import { useAuth } from '@/hooks/use-auth'
 import logoUrl from '@/assets/logo-final-bekai-ac6d9.jpeg'
 import {
   ShieldCheck,
@@ -16,11 +20,153 @@ import {
   Eye,
   Sparkles,
   Map,
+  LogIn,
+  X,
+  Loader2,
+  Lock,
+  Mail,
+  AlertCircle,
 } from 'lucide-react'
 
+// ---------------------------------------------------------------------------
+// Login Modal
+// ---------------------------------------------------------------------------
+function LoginModal({ onClose }: { onClose: () => void }) {
+  const { signIn } = useAuth()
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    const { error } = await signIn(email, password)
+    setLoading(false)
+    if (error) {
+      setError('E-mail ou senha incorretos. Tente novamente.')
+    } else {
+      onClose()
+      navigate('/dashboard')
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative animate-fade-in-up">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Logo */}
+        <div className="flex items-center gap-3 mb-8">
+          <img src={logoUrl} alt="BekAI" className="w-10 h-10 rounded-xl object-contain shadow-sm" />
+          <span className="font-serif font-bold text-xl text-primary tracking-widest">BekAI</span>
+        </div>
+
+        <h2 className="text-2xl font-serif font-bold text-slate-900 mb-1">Bem-vindo de volta</h2>
+        <p className="text-slate-500 text-sm mb-8">Entre com sua conta para acessar o dashboard.</p>
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-slate-700 font-medium text-sm">
+              E-mail
+            </Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                className="pl-10 h-12 border-slate-200 focus:border-primary rounded-xl"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+          </div>
+
+          {/* Senha */}
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-slate-700 font-medium text-sm">
+              Senha
+            </Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                className="pl-10 h-12 border-slate-200 focus:border-primary rounded-xl"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+
+          {/* Erro */}
+          {error && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 text-base font-semibold rounded-xl shadow-md shadow-primary/20"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...
+              </>
+            ) : (
+              <>
+                Entrar no Dashboard <ArrowRight className="w-4 h-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-slate-500 mt-6">
+          Ainda não tem conta?{' '}
+          <Link to="/planos" onClick={onClose} className="text-primary font-semibold hover:underline">
+            Começar agora
+          </Link>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Landing Page
+// ---------------------------------------------------------------------------
 export default function Landing() {
+  const [showLogin, setShowLogin] = useState(false)
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                              */}
+      {/* ------------------------------------------------------------------ */}
       <header className="py-5 px-6 md:px-10 flex items-center justify-between border-b bg-white/60 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3 text-primary">
           <img
@@ -32,7 +178,9 @@ export default function Landing() {
             BekAI
           </span>
         </div>
-        <div className="flex items-center gap-4">
+
+        {/* Nav buttons — secondary actions left, primary right */}
+        <div className="flex items-center gap-2">
           <Button asChild variant="ghost" className="font-semibold hidden sm:flex text-primary/80">
             <Link to="/investidores">Área do Investidor</Link>
           </Button>
@@ -45,34 +193,76 @@ export default function Landing() {
           <Button asChild className="shadow-md shadow-primary/20">
             <Link to="/planos">Começar Agora</Link>
           </Button>
+          {/* Separator */}
+          <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1" />
+          {/* Subscriber access — rightmost */}
+          <Button
+            variant="outline"
+            className="border-primary/40 text-primary hover:bg-primary/5 font-semibold hidden sm:flex gap-2"
+            onClick={() => setShowLogin(true)}
+          >
+            <LogIn className="w-4 h-4" /> Já sou assinante
+          </Button>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="py-20 md:py-32 px-4 text-center relative overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] -z-10" />
-          <div className="max-w-5xl mx-auto space-y-8 relative z-10 animate-fade-in-up">
+        {/* ---------------------------------------------------------------- */}
+        {/* Hero Section — full-width background image, centrado            */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          className="relative flex items-start justify-center overflow-hidden"
+          style={{
+            backgroundImage: "url('/hero.jpg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          {/* Overlay leve — mantém cores vibrantes da foto */}
+          <div className="absolute inset-0 bg-white/25" />
+          {/* Degradê suave na base — transição para a próxima seção (branca) */}
+          <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-b from-transparent to-white" />
+
+          {/* Conteúdo centralizado */}
+          <div className="relative z-10 w-full max-w-3xl mx-auto px-6 md:px-10 pt-8 pb-16 flex flex-col items-center text-center space-y-5 animate-fade-in-up">
             <Badge
               variant="secondary"
-              className="px-4 py-1.5 text-sm font-semibold border-secondary/20 mb-4 gap-2 shadow-sm"
+              className="px-4 py-1.5 text-sm font-semibold border-secondary/20 gap-2 shadow-sm"
             >
               <Sparkles className="w-4 h-4" /> Plataforma de Governança Digital
             </Badge>
-            <h1 className="text-5xl md:text-7xl font-serif font-bold text-primary leading-[1.1] tracking-tight">
-              BekAI: Inteligência Digital a Serviço da <br className="hidden sm:block" />
+
+            <h1 className="text-4xl md:text-5xl xl:text-[3.4rem] font-serif font-bold text-primary leading-[1.1] tracking-tight">
+              BekAI: Inteligência Digital a Serviço da{' '}
               <span className="text-secondary drop-shadow-sm">Saúde Mental</span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Muito além do bloqueio de telas. Somos um ecossistema que atua como mentor invisível,
-              reeducando algoritmos, neutralizando gatilhos de ansiedade e promovendo o
-              desenvolvimento cognitivo saudável para a nova geração.
+
+            <p className="text-lg text-slate-700 max-w-lg leading-relaxed">
+              Muito além do bloqueio de telas. Somos um ecossistema que atua como mentor
+              invisível, reeducando algoritmos e promovendo o desenvolvimento cognitivo saudável
+              para a nova geração.
             </p>
-            <div className="pt-8 flex flex-col sm:flex-row justify-center gap-4">
+
+            {/* Trust badges */}
+            <div className="flex flex-wrap justify-center gap-2 text-sm">
+              {[
+                { icon: <ShieldCheck className="w-4 h-4 text-emerald-600" />, text: 'Dados protegidos' },
+                { icon: <CheckCircle2 className="w-4 h-4 text-primary" />, text: 'Baseado em evidências' },
+                { icon: <Users className="w-4 h-4 text-secondary" />, text: 'Para toda a família' },
+              ].map(({ icon, text }) => (
+                <span key={text} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-full px-3 py-1.5 shadow-sm font-medium text-slate-700">
+                  {icon} {text}
+                </span>
+              ))}
+            </div>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
               <Button
                 asChild
                 size="lg"
-                className="h-14 px-8 text-lg shadow-xl hover:scale-105 transition-transform"
+                className="h-13 px-8 text-base shadow-xl hover:scale-105 transition-transform"
               >
                 <Link to="/planos">
                   Começar Agora <ArrowRight className="w-5 h-5 ml-2" />
@@ -82,26 +272,35 @@ export default function Landing() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-lg hover:bg-secondary/10 border-primary/20 text-primary bg-white"
+                className="h-13 px-8 text-base border-primary/20 text-primary bg-white/80 backdrop-blur-sm hover:bg-white"
               >
                 <Link to="/clinical-demo">
                   BekAI Clinical <Stethoscope className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="secondary"
-                className="h-14 px-8 text-lg shadow-md bg-secondary text-secondary-foreground hover:bg-secondary/90"
-              >
-                <Link to="/investidores">Área do Investidor</Link>
-              </Button>
             </div>
+
+            {/* Subscriber shortcut */}
+            <button
+              onClick={() => setShowLogin(true)}
+              className="group inline-flex items-center gap-3 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-primary/40 rounded-2xl px-5 py-3.5 shadow-sm hover:shadow-md transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-primary leading-tight">Já sou assinante</p>
+                <p className="text-xs text-slate-500">Acessar minha conta e dashboard</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </button>
           </div>
         </section>
 
-        {/* Metaphors & Value Proposition Section */}
-        <section className="py-24 px-4 bg-white border-y border-border/50">
+        {/* ---------------------------------------------------------------- */}
+        {/* Metaphors & Value Proposition Section                            */}
+        {/* ---------------------------------------------------------------- */}
+        <section className="py-24 px-4 bg-white border-border/50">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16 space-y-4">
               <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900">
@@ -184,7 +383,9 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Application Scenarios */}
+        {/* ---------------------------------------------------------------- */}
+        {/* Application Scenarios                                            */}
+        {/* ---------------------------------------------------------------- */}
         <section className="py-24 px-4 bg-slate-50 border-t border-slate-200">
           <div className="max-w-6xl mx-auto space-y-16">
             <div className="text-center space-y-4">
@@ -264,7 +465,9 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* CTA Sales Section */}
+        {/* ---------------------------------------------------------------- */}
+        {/* CTA Final                                                        */}
+        {/* ---------------------------------------------------------------- */}
         <section className="py-24 px-4 bg-slate-950 relative overflow-hidden text-center flex flex-col items-center justify-center border-t border-slate-800">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-primary/40 opacity-90 z-0"></div>
           <div className="max-w-4xl mx-auto relative z-10 space-y-8 animate-fade-in-up">
@@ -276,7 +479,7 @@ export default function Landing() {
               O BekAI transforma dados invisíveis em proteção real. Protegemos a saúde mental
               identificando riscos de ansiedade e exposição inadequada antes que se tornem crises.
             </p>
-            <div className="pt-6">
+            <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 asChild
                 size="lg"
@@ -285,6 +488,14 @@ export default function Landing() {
                 <Link to="/planos">
                   Garantir Proteção Agora <ArrowRight className="w-6 h-6 ml-3" />
                 </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-16 px-10 text-lg rounded-full border-white/20 text-white hover:bg-white/10 font-semibold gap-2"
+                onClick={() => setShowLogin(true)}
+              >
+                <LogIn className="w-5 h-5" /> Já sou assinante
               </Button>
             </div>
           </div>
