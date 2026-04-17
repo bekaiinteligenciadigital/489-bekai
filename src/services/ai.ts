@@ -13,45 +13,36 @@ const MODEL = 'llama-3.3-70b-versatile'
 const API_KEY = import.meta.env.VITE_GROQ_API_KEY as string
 
 // ─────────────────────────────────────────────
-// Helpers
+// Helpers — com retry, timeout e JSON mode
 // ─────────────────────────────────────────────
 
-async function callGroq(systemPrompt: string, userMessage: string): Promise<string> {
-  if (!API_KEY) {
-    throw new Error(
-      'VITE_GROQ_API_KEY não encontrada. Adicione a chave no arquivo .env do projeto.',
-    )
-  }
+const REQUEST_TIMEOUT_MS = 30_000
+const MAX_RETRIES = 2
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 2048,
-      temperature: 0.7,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(`Erro na API Groq: ${response.status} — ${JSON.stringify(error)}`)
-  }
-
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content ?? ''
+interface GroqOptions {
+  maxTokens?: number
+  temperature?: number
+  jsonMode?: boolean
 }
 
-async function callGroqWithHistory(
-  systemPrompt: string,
-  messages: { role: 'user' | 'assistant'; content: string }[],
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function isRetryable(status: number): boolean {
+  // 408 timeout, 429 rate limit, 500/502/503/504 server errors
+  return status === 408 || status === 429 || (status >= 500 && status < 600)
+}
+
+async function postToGroq(
+  body: Record<string, unknown>,
+  retriesLeft = MAX_RETRIES,
 ): Promise<string> {
   if (!API_KEY) {
     throw new Error(
@@ -59,27 +50,96 @@ async function callGroqWithHistory(
     )
   }
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      temperature: 0.7,
-      messages: [{ role: 'system', content: systemPrompt }, ...messages],
-    }),
-  })
+  try {
+    const response = await fetchWithTimeout(
+      GROQ_API_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify(body),
+      },
+      REQUEST_TIMEOUT_MS,
+    )
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(`Erro na API Groq: ${response.status} — ${JSON.stringify(error)}`)
+    if (!response.ok) {
+      if (isRetryable(response.status) && retriesLeft > 0) {
+        // Backoff exponencial: 600ms, 1200ms
+        const delay = 600 * Math.pow(2, MAX_RETRIES - retriesLeft)
+        await new Promise((r) => setTimeout(r, delay))
+        return postToGroq(body, retriesLeft - 1)
+      }
+      const error = await response.json().catch(() => ({}))
+      throw new Error(`Erro na API Groq: ${response.status} — ${JSON.stringify(error)}`)
+    }
+
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content ?? ''
+  } catch (err: any) {
+    // AbortError (timeout) ou erro de rede → retry
+    const isNetworkErr = err?.name === 'AbortError' || err?.message?.includes('fetch')
+    if (isNetworkErr && retriesLeft > 0) {
+      const delay = 600 * Math.pow(2, MAX_RETRIES - retriesLeft)
+      await new Promise((r) => setTimeout(r, delay))
+      return postToGroq(body, retriesLeft - 1)
+    }
+    throw err
   }
+}
 
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content ?? ''
+async function callGroq(
+  systemPrompt: string,
+  userMessage: string,
+  opts: GroqOptions = {},
+): Promise<string> {
+  const body: Record<string, unknown> = {
+    model: MODEL,
+    max_tokens: opts.maxTokens ?? 2048,
+    temperature: opts.temperature ?? 0.7,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ],
+  }
+  if (opts.jsonMode) {
+    body.response_format = { type: 'json_object' }
+  }
+  return postToGroq(body)
+}
+
+async function callGroqWithHistory(
+  systemPrompt: string,
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  opts: GroqOptions = {},
+): Promise<string> {
+  const body: Record<string, unknown> = {
+    model: MODEL,
+    max_tokens: opts.maxTokens ?? 1024,
+    temperature: opts.temperature ?? 0.7,
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+  }
+  if (opts.jsonMode) {
+    body.response_format = { type: 'json_object' }
+  }
+  return postToGroq(body)
+}
+
+function extractJson(raw: string, agentName: string): any {
+  // Com JSON mode ativo, `raw` já é um JSON válido.
+  // Fallback: regex para extrair se vier cercado por texto.
+  try {
+    return JSON.parse(raw)
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (!match) throw new Error(`Resposta do ${agentName} não contém JSON válido.`)
+    try {
+      return JSON.parse(match[0])
+    } catch (e: any) {
+      throw new Error(`Resposta do ${agentName} tem JSON mal-formado: ${e.message}`)
+    }
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -210,12 +270,12 @@ ${data.behaviors.map((b) => `- ${b}`).join('\n')}
 ${data.audioTranscript ? `\nRelato em áudio: ${data.audioTranscript}` : ''}
 ${data.additionalNotes ? `\nObservações: ${data.additionalNotes}` : ''}`
 
-  const raw = await callGroq(ANALYSIS_SYSTEM_PROMPT, userMessage)
-
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Resposta do Agente de Análise não contém JSON válido.')
-
-  return JSON.parse(jsonMatch[0]) as AnalysisResult
+  const raw = await callGroq(ANALYSIS_SYSTEM_PROMPT, userMessage, {
+    jsonMode: true,
+    temperature: 0.4,
+    maxTokens: 2048,
+  })
+  return extractJson(raw, 'Agente de Análise') as AnalysisResult
 }
 
 // ─────────────────────────────────────────────
@@ -260,10 +320,12 @@ Perfil Algorítmico: ${analysisResult.algorithmicProfile}
 Dimensões:
 ${analysisResult.scores.map((s) => `- ${s.dimension}: ${s.label} (${s.score}/100) — ${s.description}`).join('\n')}`
 
-  const raw = await callGroq(RESULT_SYSTEM_PROMPT, userMessage)
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Resposta do Agente de Resultado não contém JSON válido.')
-  return JSON.parse(jsonMatch[0]) as ResultoInsights
+  const raw = await callGroq(RESULT_SYSTEM_PROMPT, userMessage, {
+    jsonMode: true,
+    temperature: 0.5,
+    maxTokens: 2048,
+  })
+  return extractJson(raw, 'Agente de Resultado') as ResultoInsights
 }
 
 // ─────────────────────────────────────────────
@@ -315,10 +377,12 @@ Perfil Algorítmico: ${analysisResult.algorithmicProfile}
 Dimensões:
 ${analysisResult.scores.map((s) => `- ${s.dimension}: ${s.label} — ${s.description}`).join('\n')}`
 
-  const raw = await callGroq(ACTION_PLAN_SYSTEM_PROMPT, userMessage)
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Resposta do Agente de Plano de Ação não contém JSON válido.')
-  return JSON.parse(jsonMatch[0]) as ActionPlanResult
+  const raw = await callGroq(ACTION_PLAN_SYSTEM_PROMPT, userMessage, {
+    jsonMode: true,
+    temperature: 0.5,
+    maxTokens: 2048,
+  })
+  return extractJson(raw, 'Agente de Plano de Ação') as ActionPlanResult
 }
 
 // ─────────────────────────────────────────────
