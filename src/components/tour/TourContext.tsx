@@ -1,11 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-  useCallback,
-} from 'react'
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react'
 
 interface TourContextType {
   isActive: boolean
@@ -22,18 +15,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [isActive, setIsActive] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
 
-  useEffect(() => {
-    // Start tour on very first access
-    const hasSeenTour = localStorage.getItem('kairos_tour_completed')
-    if (!hasSeenTour) {
-      setIsActive(true)
-      localStorage.setItem('kairos_tour_completed', 'true')
-    }
-  }, [])
-
   const startTour = useCallback(() => {
     setCurrentStep(0)
     setIsActive(true)
+    localStorage.setItem('kairos_tour_completed', 'true')
   }, [])
 
   const stopTour = useCallback(() => {
