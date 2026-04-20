@@ -211,7 +211,7 @@ export default function Landing() {
         {/* Hero Section — full-width background image, centrado            */}
         {/* ---------------------------------------------------------------- */}
         <section
-          className="relative flex items-start justify-center overflow-hidden"
+          className="relative flex min-h-[calc(100vh-5rem)] items-start justify-center overflow-hidden"
           style={{
             backgroundImage: "url('/hero.jpg')",
             backgroundSize: 'cover',
@@ -219,39 +219,46 @@ export default function Landing() {
             backgroundRepeat: 'no-repeat',
           }}
         >
-          {/* Overlay leve — mantém cores vibrantes da foto */}
-          <div className="absolute inset-0 bg-white/25" />
-          {/* Degradê suave na base — transição para a próxima seção (branca) */}
-          <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-b from-transparent to-white" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.8)_28%,rgba(255,255,255,0.5)_50%,rgba(255,255,255,0.18)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.78),rgba(255,255,255,0.12)_58%,rgba(255,255,255,0)_100%)]" />
+          <div className="absolute inset-y-0 left-0 w-full md:w-[62%] bg-[radial-gradient(circle_at_center,rgba(248,250,252,0.95),rgba(248,250,252,0.72)_42%,rgba(248,250,252,0.18)_78%,rgba(248,250,252,0)_100%)]" />
+          <div className="absolute bottom-0 left-0 right-0 h-44 bg-gradient-to-b from-transparent via-white/50 to-white" />
 
           {/* Conteúdo centralizado */}
-          <div className="relative z-10 w-full max-w-3xl mx-auto px-6 md:px-10 pt-8 pb-16 flex flex-col items-center text-center space-y-5 animate-fade-in-up">
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-10 pt-10 pb-16 md:pt-14 flex flex-col items-center text-center space-y-6 animate-fade-in-up">
             <Badge
               variant="secondary"
-              className="px-4 py-1.5 text-sm font-semibold border-secondary/20 gap-2 shadow-sm"
+              className="px-4 py-1.5 text-sm font-semibold border-secondary/20 gap-2 shadow-sm backdrop-blur-sm"
             >
               <Sparkles className="w-4 h-4" /> Plataforma de Governança Digital
             </Badge>
 
-            <h1 className="text-4xl md:text-5xl xl:text-[3.4rem] font-serif font-bold text-primary leading-[1.1] tracking-tight">
-              BekAI: Inteligência Digital a Serviço da{' '}
-              <span className="text-secondary drop-shadow-sm">Saúde Mental</span>
-            </h1>
+            <div className="w-full max-w-3xl rounded-[2rem] border border-white/55 bg-white/46 px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-md md:px-10 md:py-8">
+              <div className="space-y-5">
+                <h1 className="text-4xl md:text-5xl xl:text-[3.55rem] font-serif font-bold text-primary leading-[1.04] tracking-tight">
+                  BekAI: Inteligência Digital a Serviço da{' '}
+                  <span className="inline-block text-secondary [text-shadow:-1px_-1px_0_rgba(0,0,0,0.95),2px_-1px_0_rgba(0,0,0,0.95),-1px_1px_0_rgba(0,0,0,0.95),1px_1px_0_rgba(0,0,0,0.95),0_2px_14px_rgba(255,255,255,0.35)]"
+                  >
+                    Saúde Mental
+                  </span>
+                </h1>
 
-            <p className="text-lg text-slate-700 max-w-lg leading-relaxed">
-              Muito além do bloqueio de telas. Somos um ecossistema que atua como mentor
-              invisível, reeducando algoritmos e promovendo o desenvolvimento cognitivo saudável
-              para a nova geração.
-            </p>
+                <p className="mx-auto max-w-2xl text-lg md:text-[1.35rem] text-slate-700 leading-relaxed">
+                  Muito além do bloqueio de telas. Somos um ecossistema que atua como mentor
+                  invisível, reeducando algoritmos e promovendo o desenvolvimento cognitivo
+                  saudável para a nova geração.
+                </p>
+              </div>
+            </div>
 
             {/* Trust badges */}
-            <div className="flex flex-wrap justify-center gap-2 text-sm">
+            <div className="flex max-w-3xl flex-wrap justify-center gap-2 text-sm">
               {[
                 { icon: <ShieldCheck className="w-4 h-4 text-emerald-600" />, text: 'Dados protegidos' },
                 { icon: <CheckCircle2 className="w-4 h-4 text-primary" />, text: 'Baseado em evidências' },
                 { icon: <Users className="w-4 h-4 text-secondary" />, text: 'Para toda a família' },
               ].map(({ icon, text }) => (
-                <span key={text} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-full px-3 py-1.5 shadow-sm font-medium text-slate-700">
+                <span key={text} className="flex items-center gap-1.5 bg-white/88 backdrop-blur-md border border-white/70 rounded-full px-3 py-1.5 shadow-sm font-medium text-slate-700">
                   {icon} {text}
                 </span>
               ))}
@@ -272,7 +279,7 @@ export default function Landing() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="h-13 px-8 text-base border-primary/20 text-primary bg-white/80 backdrop-blur-sm hover:bg-white"
+                className="h-13 px-8 text-base border-primary/15 text-primary bg-white/82 backdrop-blur-md hover:bg-white"
               >
                 <Link to="/clinical-demo">
                   BekAI Clinical <Stethoscope className="w-5 h-5 ml-2" />
@@ -283,7 +290,7 @@ export default function Landing() {
             {/* Subscriber shortcut */}
             <button
               onClick={() => setShowLogin(true)}
-              className="group inline-flex items-center gap-3 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-primary/40 rounded-2xl px-5 py-3.5 shadow-sm hover:shadow-md transition-all"
+              className="group inline-flex items-center gap-3 bg-white/88 backdrop-blur-md border border-white/70 hover:border-primary/25 rounded-2xl px-5 py-3.5 shadow-sm hover:shadow-md transition-all"
             >
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <ShieldCheck className="w-4 h-4 text-primary" />
