@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import pb from '@/lib/pocketbase/client'
+import { clearPendingCheckout } from '@/lib/checkout'
 
 export default function PagamentoSucesso() {
   const navigate = useNavigate()
@@ -13,8 +15,16 @@ export default function PagamentoSucesso() {
   }, [navigate])
 
   const handleContinue = () => {
-    const role = sessionStorage.getItem('paidRole') || 'subscriber'
-    navigate(`/cadastro-cliente?role=${role}&tab=register`)
+    clearPendingCheckout()
+    const user = pb.authStore.record
+    const role = sessionStorage.getItem('paidRole') || user?.role || 'subscriber'
+
+    if (role === 'professional') {
+      navigate('/cadastro-profissional')
+      return
+    }
+
+    navigate('/setup-jovem')
   }
 
   return (
@@ -23,11 +33,11 @@ export default function PagamentoSucesso() {
         <CheckCircle className="w-20 h-20 text-emerald-500 mx-auto mb-6" />
         <h1 className="text-3xl font-serif font-bold text-primary mb-4">Pagamento Aprovado!</h1>
         <p className="text-muted-foreground mb-8">
-          Seu pagamento foi processado com sucesso. Para começar a utilizar a plataforma, precisamos
-          criar a sua conta de acesso e definir sua senha.
+          Seu pagamento foi processado com sucesso. Agora vamos concluir a ativacao da sua jornada
+          dentro da plataforma.
         </p>
         <Button onClick={handleContinue} className="w-full h-14 text-lg font-bold">
-          Criar Minha Conta
+          Continuar
         </Button>
       </div>
     </div>

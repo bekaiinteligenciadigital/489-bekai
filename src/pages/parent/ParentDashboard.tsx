@@ -10,12 +10,11 @@ import {
   getScientificLibrary,
 } from '@/services/parent'
 import { useRealtime } from '@/hooks/use-realtime'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
-import { Shield, Activity, AlertTriangle, Download, Info, BrainCircuit } from 'lucide-react'
+import { Shield, Activity, AlertTriangle, Download, BrainCircuit } from 'lucide-react'
 import { DigitalInfluenceMap } from '@/components/parent/DigitalInfluenceMap'
 import { ParentalScriptsLibrary } from '@/components/parent/ParentalScriptsLibrary'
 import { MonitoringStatus } from '@/components/parent/MonitoringStatus'
@@ -26,6 +25,14 @@ import { TermTooltip } from '@/components/ui/glossary-tooltip'
 import pb from '@/lib/pocketbase/client'
 import { AnaliseProcessando } from '@/components/AnaliseProcessando'
 import { ConsentModal } from '@/components/parent/ConsentModal'
+import { SocialConnectionsPanel } from '@/components/parent/SocialConnectionsPanel'
+import {
+  SocialConnection,
+  SyncJob,
+  getChildSocialConnections,
+  getChildSyncJobs,
+  syncSocialData,
+} from '@/services/monitoring'
 
 export default function ParentDashboard() {
   const [children, setChildren] = useState<Child[]>([])
@@ -34,12 +41,15 @@ export default function ParentDashboard() {
   const [events, setEvents] = useState<DigitalEvent[]>([])
   const [analysisRecords, setAnalysisRecords] = useState<AnalysisRecord[]>([])
   const [library, setLibrary] = useState<ScientificRef[]>([])
+  const [connections, setConnections] = useState<SocialConnection[]>([])
+  const [syncJobs, setSyncJobs] = useState<SyncJob[]>([])
 
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [referralModalOpen, setReferralModalOpen] = useState(false)
   const [consentModalOpen, setConsentModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
@@ -59,14 +69,18 @@ export default function ParentDashboard() {
 
   const loadChildData = useCallback(async (childId: string) => {
     try {
-      const evts = await getChildDigitalEvents(childId)
-      setEvents(evts)
-      const analyses = await getChildAnalysis(childId)
-      setAnalysisRecords(analyses)
+      const [evts, analyses, social, jobs, assessments] = await Promise.all([
+        getChildDigitalEvents(childId),
+        getChildAnalysis(childId),
+        getChildSocialConnections(childId),
+        getChildSyncJobs(childId),
+        pb.collection('assessments').getFullList({ filter: `child = "${childId}"` }),
+      ])
 
-      const assessments = await pb
-        .collection('assessments')
-        .getFullList({ filter: `child = "${childId}"` })
+      setEvents(evts)
+      setAnalysisRecords(analyses)
+      setConnections(social)
+      setSyncJobs(jobs)
       setIsAnalyzing(assessments.some((a) => a.status === 'submitted'))
     } catch (err) {
       console.error('Failed to load child specific data', err)
@@ -81,7 +95,6 @@ export default function ParentDashboard() {
     if (activeChildId) loadChildData(activeChildId)
   }, [activeChildId, loadChildData])
 
-  // Realtime subscriptions
   useRealtime('digital_events', () => {
     if (activeChildId) loadChildData(activeChildId)
   })
@@ -94,9 +107,16 @@ export default function ParentDashboard() {
   useRealtime('children', () => {
     loadData()
   })
+  useRealtime('social_connections', () => {
+    if (activeChildId) loadChildData(activeChildId)
+  })
+  useRealtime('sync_jobs', () => {
+    if (activeChildId) loadChildData(activeChildId)
+  })
 
   const activeChild = children.find((c) => c.id === activeChildId) || null
   const latestAnalysis = analysisRecords[0] || null
+  const latestSyncJob = syncJobs[0] || null
 
   const getRiskColor = (level: string) => {
     switch (level?.toLowerCase()) {
@@ -111,12 +131,26 @@ export default function ParentDashboard() {
     }
   }
 
-  if (loading)
+  const handleSync = async () => {
+    if (!activeChild) return
+    setSyncing(true)
+    try {
+      await syncSocialData(activeChild.id)
+      await Promise.all([loadChildData(activeChild.id), loadData()])
+    } catch (err) {
+      console.error('Failed to sync social data', err)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  if (loading) {
     return (
       <div className="p-8 text-center text-muted-foreground animate-pulse">
         Carregando painel educacional...
       </div>
     )
+  }
 
   if (children.length === 0) {
     return (
@@ -211,9 +245,14 @@ export default function ParentDashboard() {
           </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-6">
-            {/* Main Content Column */}
             <div className="md:col-span-2 space-y-6">
               {activeChild && <MonitoringStatus child={activeChild} />}
+              <SocialConnectionsPanel
+                connections={connections}
+                latestJob={latestSyncJob}
+                onSync={handleSync}
+                syncing={syncing}
+              />
               {activeChild && <BehavioralStratification events={events} />}
               <DigitalInfluenceMap events={events} />
               <div id="tour-scripts">
@@ -221,7 +260,6 @@ export default function ParentDashboard() {
               </div>
             </div>
 
-            {/* Sidebar Metrics Column */}
             <div className="space-y-6">
               <Card className="shadow-sm border-t-4 border-t-primary" id="tour-dq">
                 <CardHeader className="pb-3">

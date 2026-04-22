@@ -8,50 +8,80 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CreditCard, QrCode, Lock, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import useFamilyStore from '@/stores/useFamilyStore'
+import pb from '@/lib/pocketbase/client'
+import { getPendingCheckout } from '@/lib/checkout'
 
 export default function Pagamento() {
   const navigate = useNavigate()
-  const { plan, planPrice, essentialChildrenCount } = useFamilyStore()
+  const { plan, planPrice, essentialChildrenCount, setPlan } = useFamilyStore()
   const { toast } = useToast()
+  const pendingCheckout = getPendingCheckout()
+  const summaryPlan = pendingCheckout?.planName || plan
+  const summaryPrice = pendingCheckout?.planPrice || planPrice
+  const summaryRole = pendingCheckout?.role || 'subscriber'
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(pb.authStore.record?.email || '')
   const [cardNumber, setCardNumber] = useState('')
   const [expiry, setExpiry] = useState('')
   const [cvv, setCvv] = useState('')
-  const [name, setName] = useState('')
+  const [name, setName] = useState(pb.authStore.record?.name || '')
   const [isProcessing, setIsProcessing] = useState(false)
 
+  const handleCardNumberChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 16)
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
+    setCardNumber(formatted)
+  }
+
+  const handleExpiryChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 4)
+    const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits
+    setExpiry(formatted)
+  }
+
+  const handleCvvChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 4)
+    setCvv(digits)
+  }
+
   useEffect(() => {
+    if (!pb.authStore.record) {
+      toast({
+        title: 'Crie sua conta primeiro',
+        description: 'Para sua seguranca, finalize o cadastro antes de prosseguir ao pagamento.',
+        variant: 'destructive',
+      })
+      navigate('/cadastro-cliente?tab=register&next=payment')
+      return
+    }
+
+    if (pendingCheckout?.planName) {
+      setPlan(pendingCheckout.planName, pendingCheckout.planPrice)
+      return
+    }
+
     if (!plan) {
       toast({
         title: 'Selecione um plano',
-        description: 'Você precisa selecionar um plano antes de prosseguir para o pagamento.',
+        description: 'Voce precisa selecionar um plano antes de prosseguir para o pagamento.',
         variant: 'destructive',
       })
       navigate('/planos')
     }
-  }, [plan, navigate, toast])
+  }, [navigate, pendingCheckout, plan, setPlan, toast])
 
   const processPayment = () => {
     setIsProcessing(true)
 
-    // Simulating external gateway processing time (Stripe/MercadoPago)
     setTimeout(() => {
       sessionStorage.setItem('hasPaid', 'true')
       sessionStorage.setItem('paidEmail', email)
-
-      const role = plan === 'Plano Essencial Profissional Saúde' ? 'professional' : 'subscriber'
-      const activePlan =
-        plan === 'Plano Essencial Profissional Saúde'
-          ? 'essencial_profissional'
-          : 'essencial_familia'
-
-      sessionStorage.setItem('paidRole', role)
-      sessionStorage.setItem('activePlan', activePlan)
+      sessionStorage.setItem('paidRole', summaryRole)
+      sessionStorage.setItem('activePlan', pendingCheckout?.planId || 'essencial_familia')
 
       toast({
-        title: 'Pagamento Aprovado!',
-        description: 'Seu pagamento foi processado com segurança.',
+        title: 'Pagamento aprovado!',
+        description: 'Seu pagamento foi processado com seguranca.',
       })
       navigate('/pagamento/sucesso')
     }, 2000)
@@ -61,19 +91,50 @@ export default function Pagamento() {
     e.preventDefault()
     if (!email || !name || !cardNumber || !expiry || !cvv) {
       toast({
-        title: 'Dados Incompletos',
-        description: 'Preencha todos os dados de contato e cartão de crédito.',
+        title: 'Dados incompletos',
+        description: 'Preencha todos os dados de contato e cartao de credito.',
         variant: 'destructive',
       })
       return
     }
+
+    const cardDigits = cardNumber.replace(/\D/g, '')
+    const expiryDigits = expiry.replace(/\D/g, '')
+
+    if (cardDigits.length !== 16) {
+      toast({
+        title: 'Numero do cartao invalido',
+        description: 'Informe exatamente 16 numeros no cartao.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (expiryDigits.length !== 4) {
+      toast({
+        title: 'Validade invalida',
+        description: 'Informe a validade com 4 numeros no formato MM/AA.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (cvv.length < 3 || cvv.length > 4) {
+      toast({
+        title: 'CVV invalido',
+        description: 'Informe um CVV com 3 ou 4 numeros.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     processPayment()
   }
 
   const handlePix = () => {
     if (!email) {
       toast({
-        title: 'Email Obrigatório',
+        title: 'Email obrigatorio',
         description: 'Informe seu e-mail para receber o comprovante e acessar a plataforma.',
         variant: 'destructive',
       })
@@ -104,10 +165,10 @@ export default function Pagamento() {
             Resumo do Pedido
           </h3>
           <div className="mt-4 flex justify-between items-center text-sm">
-            <span className="text-muted-foreground font-medium">{plan}</span>
-            <span className="font-bold">{formatPrice(planPrice)}</span>
+            <span className="text-muted-foreground font-medium">{summaryPlan}</span>
+            <span className="font-bold">{formatPrice(summaryPrice)}</span>
           </div>
-          {plan === 'Plano Essencial Família' && (
+          {pendingCheckout?.planId === 'essencial_familia' && (
             <div className="mt-1 flex justify-between items-center text-xs">
               <span className="text-muted-foreground">Quantidade de filhos assistidos</span>
               <span className="font-semibold text-muted-foreground">{essentialChildrenCount}</span>
@@ -115,7 +176,7 @@ export default function Pagamento() {
           )}
           <div className="mt-4 pt-4 border-t border-border/50 flex justify-between items-center">
             <span className="font-semibold text-foreground">Total Mensal</span>
-            <span className="text-xl font-bold text-emerald-600">{formatPrice(planPrice)}</span>
+            <span className="text-xl font-bold text-emerald-600">{formatPrice(summaryPrice)}</span>
           </div>
         </div>
       </div>
@@ -124,7 +185,7 @@ export default function Pagamento() {
         <CardContent className="p-0">
           <div className="p-6 border-b border-border/50 bg-muted/10">
             <div className="space-y-2">
-              <Label className="text-foreground font-semibold">E-mail para cobrança</Label>
+              <Label className="text-foreground font-semibold">E-mail para cobranca</Label>
               <Input
                 type="email"
                 value={email}
@@ -133,7 +194,7 @@ export default function Pagamento() {
                 className="bg-background h-11"
               />
               <p className="text-xs text-muted-foreground">
-                Seu comprovante e acesso serão vinculados a este e-mail.
+                Seu comprovante e acesso serao vinculados a este e-mail.
               </p>
             </div>
           </div>
@@ -144,7 +205,7 @@ export default function Pagamento() {
                 value="cartao"
                 className="data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold"
               >
-                <CreditCard className="w-4 h-4 mr-2" /> Cartão
+                <CreditCard className="w-4 h-4 mr-2" /> Cartao
               </TabsTrigger>
               <TabsTrigger
                 value="pix"
@@ -157,7 +218,7 @@ export default function Pagamento() {
             <TabsContent value="cartao" className="p-6 space-y-5 m-0 animate-fade-in">
               <form onSubmit={handleConfirm} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Nome no Cartão</Label>
+                  <Label>Nome no Cartao</Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -166,12 +227,14 @@ export default function Pagamento() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Número do Cartão</Label>
+                  <Label>Numero do Cartao</Label>
                   <Input
                     value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
+                    onChange={(e) => handleCardNumberChange(e.target.value)}
                     placeholder="0000 0000 0000 0000"
                     className="bg-background h-11"
+                    inputMode="numeric"
+                    autoComplete="cc-number"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -179,20 +242,24 @@ export default function Pagamento() {
                     <Label>Validade</Label>
                     <Input
                       value={expiry}
-                      onChange={(e) => setExpiry(e.target.value)}
+                      onChange={(e) => handleExpiryChange(e.target.value)}
                       placeholder="MM/AA"
                       className="bg-background h-11"
+                      inputMode="numeric"
+                      autoComplete="cc-exp"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>CVV</Label>
                     <Input
                       value={cvv}
-                      onChange={(e) => setCvv(e.target.value)}
+                      onChange={(e) => handleCvvChange(e.target.value)}
                       placeholder="123"
                       type="password"
                       className="bg-background h-11"
                       maxLength={4}
+                      inputMode="numeric"
+                      autoComplete="cc-csc"
                     />
                   </div>
                 </div>
@@ -207,7 +274,7 @@ export default function Pagamento() {
                     </>
                   ) : (
                     <>
-                      Pagar {formatPrice(planPrice)} <ArrowRight className="w-5 h-5 ml-2" />
+                      Pagar {formatPrice(summaryPrice)} <ArrowRight className="w-5 h-5 ml-2" />
                     </>
                   )}
                 </Button>
@@ -224,7 +291,7 @@ export default function Pagamento() {
               </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-foreground">
-                  Escaneie o QR Code ou copie o código PIX
+                  Escaneie o QR Code ou copie o codigo PIX
                 </p>
                 <Input
                   readOnly
@@ -243,7 +310,7 @@ export default function Pagamento() {
                   </>
                 ) : (
                   <>
-                    Já realizei o pagamento <ArrowRight className="w-5 h-5 ml-2" />
+                    Ja realizei o pagamento <ArrowRight className="w-5 h-5 ml-2" />
                   </>
                 )}
               </Button>

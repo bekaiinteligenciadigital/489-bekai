@@ -26,7 +26,6 @@ export function AnaliseProcessando() {
     let cancelled = false
 
     const run = async () => {
-      // Progresso animado enquanto a IA processa
       const interval = setInterval(() => {
         setProgress((p) => {
           if (p >= 90) {
@@ -45,7 +44,6 @@ export function AnaliseProcessando() {
 
         if (!pendingAnalysis) throw new Error('Nenhuma análise pendente encontrada.')
 
-        // ─── AGENTE DE ANÁLISE ───
         const result = await generateRiskAnalysis({
           childName,
           childAge,
@@ -86,14 +84,24 @@ export function AnaliseProcessando() {
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-destructive">Erro no Agente de Análise</h3>
             <p className="text-sm text-muted-foreground max-w-md">{error}</p>
-            {error.includes('VITE_GROQ_API_KEY') && (
+            {error.includes('GROQ_API_KEY') && (
               <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4 text-left text-xs text-amber-900">
-                <strong>Como configurar (gratuito):</strong>
+                <strong>Como configurar no servidor:</strong>
                 <ol className="list-decimal ml-4 mt-2 space-y-1">
-                  <li>Acesse <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline">console.groq.com/keys</a> e crie uma API Key</li>
-                  <li>Abra o arquivo <code>.env</code> na raiz do projeto</li>
-                  <li>Adicione: <code>VITE_GROQ_API_KEY=sua-chave-aqui</code></li>
-                  <li>Reinicie o servidor de desenvolvimento</li>
+                  <li>
+                    Acesse{' '}
+                    <a
+                      href="https://console.groq.com/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      console.groq.com/keys
+                    </a>{' '}
+                    e crie uma API Key
+                  </li>
+                  <li>Cadastre a chave como segredo no PocketBase com o nome <code>GROQ_API_KEY</code></li>
+                  <li>Reinicie o backend do PocketBase para carregar o novo segredo</li>
                 </ol>
               </div>
             )}

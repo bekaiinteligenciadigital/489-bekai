@@ -47,15 +47,11 @@ export function EducationalAIChat() {
     const userText = input.trim()
     setInput('')
 
-    // Adiciona mensagem do usuário
     setMessages((prev) => [...prev, { role: 'user', text: userText }])
     setIsTyping(true)
-
-    // Adiciona placeholder de loading
     setMessages((prev) => [...prev, { role: 'ai', text: '', loading: true }])
 
     try {
-      // Monta histórico para a API (apenas user/assistant, sem loading)
       const history = messages
         .filter((m) => !m.loading)
         .map((m) => ({
@@ -64,7 +60,6 @@ export function EducationalAIChat() {
         }))
       history.push({ role: 'user', content: userText })
 
-      // Contexto do usuário para personalizar a resposta
       const context = {
         childName: child?.name,
         platforms: pendingAnalysis?.platforms ?? child?.platforms,
@@ -73,7 +68,6 @@ export function EducationalAIChat() {
 
       const response = await chatWithAssistant(history, context)
 
-      // Substitui o placeholder pelo texto real
       setMessages((prev) => {
         const updated = [...prev]
         const loadingIdx = updated.findLastIndex((m) => m.loading)
@@ -83,8 +77,8 @@ export function EducationalAIChat() {
         return updated
       })
     } catch (err: any) {
-      const errorMsg = err?.message?.includes('VITE_GROQ_API_KEY')
-        ? 'API Key não configurada. Adicione VITE_GROQ_API_KEY no arquivo .env do projeto. Obtenha gratuitamente em console.groq.com/keys'
+      const errorMsg = err?.message?.includes('GROQ_API_KEY')
+        ? 'A IA ainda não foi configurada no servidor. Cadastre o segredo GROQ_API_KEY no PocketBase e tente novamente.'
         : 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente.'
 
       setMessages((prev) => {
@@ -136,7 +130,6 @@ export function EducationalAIChat() {
           </div>
         </div>
 
-        {/* Contexto ativo */}
         {(child || aiResults.analysisResult) && (
           <div className="px-6 pb-2">
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 text-xs text-indigo-700 flex flex-wrap gap-2">
@@ -147,7 +140,9 @@ export function EducationalAIChat() {
                 </span>
               )}
               {pendingAnalysis?.platforms?.map((p) => (
-                <span key={p} className="bg-indigo-100 px-2 py-0.5 rounded">{p}</span>
+                <span key={p} className="bg-indigo-100 px-2 py-0.5 rounded">
+                  {p}
+                </span>
               ))}
             </div>
           </div>
@@ -199,7 +194,6 @@ export function EducationalAIChat() {
           </div>
         </ScrollArea>
 
-        {/* Sugestões rápidas */}
         {messages.length <= 1 && (
           <div className="px-6 pb-2">
             <p className="text-xs text-muted-foreground mb-2">Sugestões:</p>

@@ -5,10 +5,12 @@ export interface Child {
   name: string
   birth_date: string
   parent: string
+  platforms?: Array<{ platform: string; handle: string }>
   consent_accepted?: boolean
   consent_timestamp?: string
   consent_signature_name?: string
   monitoring_status?: string
+  last_sync_at?: string
   access_code?: string
   assigned_professional?: string
 }

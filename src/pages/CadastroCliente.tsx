@@ -16,14 +16,17 @@ import { useToast } from '@/hooks/use-toast'
 import { ShieldCheck, Stethoscope, ArrowRight, Loader2 } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { getPendingCheckout } from '@/lib/checkout'
 
 export default function CadastroCliente() {
   const [searchParams] = useSearchParams()
   const roleParam = searchParams.get('role')
   const tabParam = searchParams.get('tab')
+  const nextParam = searchParams.get('next')
+  const pendingCheckout = getPendingCheckout()
 
   const paidRole = sessionStorage.getItem('paidRole')
-  const effectiveRole = paidRole || roleParam
+  const effectiveRole = paidRole || roleParam || pendingCheckout?.role
   const role = effectiveRole === 'professional' ? 'professional' : 'subscriber'
   const isProfessional = role === 'professional'
 
@@ -69,28 +72,23 @@ export default function CadastroCliente() {
         if (inviteCode) {
           sessionStorage.setItem('pendingInviteCode', inviteCode)
           sessionStorage.setItem('hasProfessional', 'true')
-          navigate('/planos?plan=essencial_profissional')
-          return
         }
 
-        const hasPaid = sessionStorage.getItem('hasPaid')
-        sessionStorage.removeItem('hasPaid')
-        sessionStorage.removeItem('paidRole')
-
-        if (role === 'professional') {
-          navigate('/cadastro-profissional')
+        if (nextParam === 'payment' || pendingCheckout) {
+          navigate('/pagamento')
         } else {
-          if (!hasPaid) {
-            navigate('/planos')
-          } else {
-            navigate('/setup-jovem')
-          }
+          navigate(role === 'professional' ? '/cadastro-profissional' : '/planos')
         }
       } else {
         await pb.collection('Nascimento').authWithPassword(email, password)
         toast({ title: 'Login realizado com sucesso!' })
 
         const user = pb.authStore.record
+        if (nextParam === 'payment' || pendingCheckout) {
+          navigate('/pagamento')
+          return
+        }
+
         if (user?.role === 'professional') {
           if (!user.council_id) {
             navigate('/cadastro-profissional')

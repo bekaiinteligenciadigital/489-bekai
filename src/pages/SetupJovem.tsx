@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { UserPlus, ArrowRight, CheckCircle2, Users, Plus, Trash2 } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { createSocialConnections } from '@/services/monitoring'
 
 interface PlatformInput {
   platform: string
@@ -139,6 +140,7 @@ export default function SetupJovem() {
           platforms: p.platforms, // Saving JSON object array directly
           professional_info: p.healthProfessional,
         })
+        await createSocialConnections(childRecord.id, p.platforms)
         addChild(p)
 
         if (p.inviteCode) {

@@ -4,6 +4,7 @@ import { ShieldCheck, Sparkles, ArrowRight, Minus, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useFamilyStore from '@/stores/useFamilyStore'
 import { cn } from '@/lib/utils'
+import { savePendingCheckout, type CheckoutRole } from '@/lib/checkout'
 
 export const SUBSCRIPTION_PLANS = [
   {
@@ -67,8 +68,23 @@ export default function Planos() {
   const navigate = useNavigate()
 
   const handleSelect = (planId: string, price: number) => {
-    setPlan(planId, price)
-    navigate('/pagamento')
+    const selectedPlan = SUBSCRIPTION_PLANS.find((plan) => plan.id === planId)
+    if (!selectedPlan) return
+
+    const role: CheckoutRole =
+      planId === 'essencial_profissional' || planId === 'clinical_expert'
+        ? 'professional'
+        : 'subscriber'
+
+    setPlan(selectedPlan.name, price)
+    savePendingCheckout({
+      planId,
+      planName: selectedPlan.name,
+      planPrice: price,
+      role,
+    })
+
+    navigate(`/cadastro-cliente?role=${role}&tab=register&next=payment`)
   }
 
   const formatPrice = (price: number) => {
