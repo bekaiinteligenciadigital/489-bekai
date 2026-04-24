@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: bekai-pocketbase
+    runtime: docker
+    dockerfilePath: ./Dockerfile.pocketbase
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    disk:
+      name: pb-data
+      mountPath: /pb/pb_data
+      sizeGB: 5
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SOCIAL_OAUTH_REDIRECT_BASE
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: INSTAGRAM_CLIENT_ID
+        sync: false
+      - key: TIKTOK_CLIENT_ID
+        sync: false
+      - key: WHATSAPP_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: ROBLOX_CLIENT_ID
+        sync: false

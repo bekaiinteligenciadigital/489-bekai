@@ -29,8 +29,12 @@ import { SocialConnectionsPanel } from '@/components/parent/SocialConnectionsPan
 import {
   SocialConnection,
   SyncJob,
+  connectSocialManually,
+  disconnectSocialConnection,
+  completeOAuthConnection,
   getChildSocialConnections,
   getChildSyncJobs,
+  startOAuthConnection,
   syncSocialData,
 } from '@/services/monitoring'
 
@@ -50,6 +54,7 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [busyConnectionId, setBusyConnectionId] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -141,6 +146,82 @@ export default function ParentDashboard() {
       console.error('Failed to sync social data', err)
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleStartOAuth = async (connection: SocialConnection) => {
+    setBusyConnectionId(connection.id)
+    try {
+      const result = await startOAuthConnection(connection.id)
+      const useMock = window.confirm(
+        `Fluxo OAuth preparado para ${connection.platform}.\n\nScopes:\n${result.scopes.join(', ')}\n\nDeseja concluir com uma credencial de teste agora?`,
+      )
+
+      if (useMock) {
+        await completeOAuthConnection(connection.id, {
+          credential_reference: `${connection.platform.toLowerCase()}_${connection.handle.replace(/[^a-z0-9]/gi, '').toLowerCase()}_token`,
+          external_account_id: `${connection.platform.toLowerCase()}_${connection.id}`,
+          granted_scopes: result.scopes,
+          profile_url: connection.profile_url,
+          expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+        })
+      } else {
+        window.alert(`URL de autorização preparada:\n\n${result.authorization_url}`)
+      }
+
+      if (activeChild) {
+        await loadChildData(activeChild.id)
+        await loadData()
+      }
+    } catch (err) {
+      console.error('Failed to start oauth flow', err)
+    } finally {
+      setBusyConnectionId(null)
+    }
+  }
+
+  const handleConnectManual = async (connection: SocialConnection) => {
+    const credentialReference = window.prompt(
+      `Informe a referência segura da credencial para ${connection.platform} (${connection.handle}):`,
+      connection.credential_reference || '',
+    )
+
+    if (!credentialReference) return
+
+    setBusyConnectionId(connection.id)
+    try {
+      await connectSocialManually(connection.id, {
+        credential_reference: credentialReference,
+        external_account_id: `${connection.platform.toLowerCase()}_${connection.id}`,
+        granted_scopes: Array.isArray(connection.consent_scope_json)
+          ? (connection.consent_scope_json as string[])
+          : ['basic.read'],
+        expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+      })
+
+      if (activeChild) {
+        await loadChildData(activeChild.id)
+        await loadData()
+      }
+    } catch (err) {
+      console.error('Failed to connect social credential manually', err)
+    } finally {
+      setBusyConnectionId(null)
+    }
+  }
+
+  const handleDisconnect = async (connection: SocialConnection) => {
+    setBusyConnectionId(connection.id)
+    try {
+      await disconnectSocialConnection(connection.id)
+      if (activeChild) {
+        await loadChildData(activeChild.id)
+        await loadData()
+      }
+    } catch (err) {
+      console.error('Failed to disconnect social connection', err)
+    } finally {
+      setBusyConnectionId(null)
     }
   }
 
@@ -251,7 +332,11 @@ export default function ParentDashboard() {
                 connections={connections}
                 latestJob={latestSyncJob}
                 onSync={handleSync}
+                onStartOAuth={handleStartOAuth}
+                onConnectManual={handleConnectManual}
+                onDisconnect={handleDisconnect}
                 syncing={syncing}
+                busyConnectionId={busyConnectionId}
               />
               {activeChild && <BehavioralStratification events={events} />}
               <DigitalInfluenceMap events={events} />

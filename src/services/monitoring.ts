@@ -1,9 +1,5 @@
 import pb from '@/lib/pocketbase/client'
 
-export const syncSocialData = async (childId: string) => {
-  return pb.send(`/backend/v1/children/${childId}/sync`, { method: 'POST' })
-}
-
 export interface SocialConnection {
   id: string
   child: string
@@ -32,6 +28,18 @@ export interface SyncJob {
   events_created?: number
   summary_json?: unknown
   error_message?: string
+}
+
+export interface OAuthStartResponse {
+  success: boolean
+  provider: string
+  authorization_url: string
+  scopes: string[]
+  connection_id: string
+}
+
+export const syncSocialData = async (childId: string) => {
+  return pb.send(`/backend/v1/children/${childId}/sync`, { method: 'POST' })
 }
 
 export const createSocialConnections = async (
@@ -73,4 +81,53 @@ export const getChildSyncJobs = async (childId: string): Promise<SyncJob[]> => {
     filter: `child = "${childId}"`,
     sort: '-created',
   }) as Promise<SyncJob[]>
+}
+
+export const startOAuthConnection = async (connectionId: string) => {
+  return pb.send(`/backend/v1/social-connections/${connectionId}/oauth/start`, {
+    method: 'POST',
+  }) as Promise<OAuthStartResponse>
+}
+
+export const completeOAuthConnection = async (
+  connectionId: string,
+  payload: {
+    access_token?: string
+    refresh_token?: string
+    credential_reference?: string
+    granted_scopes?: string[]
+    external_account_id?: string
+    profile_url?: string
+    expires_at?: string
+  },
+) => {
+  return pb.send(`/backend/v1/social-connections/${connectionId}/oauth/complete`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export const connectSocialManually = async (
+  connectionId: string,
+  payload: {
+    credential_reference: string
+    access_token?: string
+    refresh_token?: string
+    granted_scopes?: string[]
+    external_account_id?: string
+    profile_url?: string
+    expires_at?: string
+    auth_method?: 'manual' | 'import'
+  },
+) => {
+  return pb.send(`/backend/v1/social-connections/${connectionId}/connect/manual`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export const disconnectSocialConnection = async (connectionId: string) => {
+  return pb.send(`/backend/v1/social-connections/${connectionId}/disconnect`, {
+    method: 'POST',
+  })
 }

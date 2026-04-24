@@ -1,0 +1,33 @@
+FROM node:22-alpine AS frontend-builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# The frontend can use an explicit API URL or fall back to window.location.origin.
+ARG VITE_POCKETBASE_URL=
+ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
+
+RUN npm run build
+
+FROM alpine:3.20
+
+ARG PB_VERSION=0.32.0
+
+RUN apk add --no-cache unzip ca-certificates
+
+ADD https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip /tmp/pb.zip
+RUN unzip /tmp/pb.zip -d /pb/ && rm /tmp/pb.zip
+
+COPY ./pocketbase/hooks /pb/pb_hooks
+COPY ./pocketbase/migrations /pb/pb_migrations
+COPY --from=frontend-builder /app/dist /pb/pb_public
+
+WORKDIR /pb
+
+EXPOSE 8090
+
+CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8090"]
