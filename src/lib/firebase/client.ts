@@ -14,16 +14,27 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 }
 
-export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig)
-export const firebaseAuth = getAuth(firebaseApp)
-export const firebaseDb = getFirestore(firebaseApp)
-export const firebaseStorage = getStorage(firebaseApp)
+const hasFirebaseConfig = [
+  firebaseConfig.apiKey,
+  firebaseConfig.authDomain,
+  firebaseConfig.projectId,
+  firebaseConfig.storageBucket,
+  firebaseConfig.messagingSenderId,
+  firebaseConfig.appId,
+].every((value) => typeof value === 'string' && value.trim().length > 0)
+
+export const firebaseApp = hasFirebaseConfig
+  ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
+  : null
+export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null
+export const firebaseDb = firebaseApp ? getFirestore(firebaseApp) : null
+export const firebaseStorage = firebaseApp ? getStorage(firebaseApp) : null
 
 export const firebaseAnalyticsPromise: Promise<Analytics | null> =
-  typeof window === 'undefined'
+  typeof window === 'undefined' || !firebaseApp
     ? Promise.resolve(null)
     : isSupported()
         .then((supported) => (supported ? getAnalytics(firebaseApp) : null))
         .catch(() => null)
 
-export { firebaseConfig }
+export { firebaseConfig, hasFirebaseConfig }
