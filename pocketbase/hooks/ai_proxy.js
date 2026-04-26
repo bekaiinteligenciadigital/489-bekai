@@ -145,7 +145,11 @@ function postToGroq(body) {
     )
   }
 
-  return response.json?.choices?.[0]?.message?.content || ''
+  const responseJson = response.json || {}
+  const choices = Array.isArray(responseJson.choices) ? responseJson.choices : []
+  const firstChoice = choices.length ? choices[0] : null
+  const message = firstChoice && firstChoice.message ? firstChoice.message : null
+  return message && message.content ? message.content : ''
 }
 
 function callGroq(systemPrompt, userMessage, opts) {

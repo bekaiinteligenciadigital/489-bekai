@@ -282,7 +282,8 @@ routerAdd(
   (e) => {
     const id = e.request.pathValue('id')
     const child = $app.findRecordById('children', id)
-    return e.json(200, runSyncForChild(child, e.auth?.id, 'manual'))
+    const authId = e.auth ? e.auth.id : null
+    return e.json(200, runSyncForChild(child, authId, 'manual'))
   },
   $apis.requireAuth(),
 )

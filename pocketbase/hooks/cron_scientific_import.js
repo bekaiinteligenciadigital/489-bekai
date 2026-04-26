@@ -11,7 +11,9 @@ cronAdd('weekly_import', '0 0 * * 0', () => {
       return
     }
 
-    const items = res.json?.message?.items || []
+    const responseJson = res.json || {}
+    const message = responseJson.message || {}
+    const items = Array.isArray(message.items) ? message.items : []
     const libCollection = $app.findCollectionByNameOrId('scientific_library')
 
     items.forEach((item) => {
