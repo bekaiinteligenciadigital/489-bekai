@@ -1,11 +1,11 @@
 migrate(
   (app) => {
     // 1. Ensure a parent user exists
+    const usersCol = app.findCollectionByNameOrId('Nascimento')
     let user
     try {
-      user = app.findAuthRecordByEmail('_pb_users_auth_', 'admcecc@gmail.com')
+      user = app.findAuthRecordByEmail('Nascimento', 'admcecc@gmail.com')
     } catch (e) {
-      const usersCol = app.findCollectionByNameOrId('_pb_users_auth_')
       user = new Record(usersCol)
       user.setEmail('admcecc@gmail.com')
       user.setPassword('securepassword123')
@@ -87,7 +87,7 @@ migrate(
   (app) => {
     // Optional down migration: remove the seeded child and cascading records
     try {
-      const user = app.findAuthRecordByEmail('_pb_users_auth_', 'admcecc@gmail.com')
+      const user = app.findAuthRecordByEmail('Nascimento', 'admcecc@gmail.com')
       const children = app.findRecordsByFilter('children', `parent = "${user.id}"`, '', 10, 0)
       for (const child of children) {
         app.delete(child)
