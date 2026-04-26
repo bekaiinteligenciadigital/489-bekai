@@ -1,7 +1,22 @@
 migrate(
   (app) => {
-    // Fetch Nascimento auth collection
-    const authCol = app.findCollectionByNameOrId('Nascimento')
+    let authCol
+
+    try {
+      authCol = app.findCollectionByNameOrId('Nascimento')
+    } catch (_) {
+      authCol = new Collection({
+        name: 'Nascimento',
+        type: 'auth',
+        listRule: '',
+        viewRule: '',
+        createRule: '',
+        updateRule: '',
+        deleteRule: '',
+        fields: [{ name: 'name', type: 'text' }],
+      })
+      app.save(authCol)
+    }
 
     const children = new Collection({
       name: 'children',
