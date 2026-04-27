@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
-import { ShieldCheck, Stethoscope, ArrowRight, Loader2 } from 'lucide-react'
+import { ShieldCheck, Stethoscope, ArrowRight, Loader2, Mail } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { getPendingCheckout } from '@/lib/checkout'
@@ -39,6 +39,8 @@ export default function CadastroCliente() {
   const [phone, setPhone] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
   const navigate = useNavigate()
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +51,24 @@ export default function CadastroCliente() {
     setPhone(val)
   }
   const { toast } = useToast()
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) return
+    setLoading(true)
+    try {
+      await pb.collection('Nascimento').requestPasswordReset(email)
+      setResetSent(true)
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível enviar o e-mail. Verifique o endereço informado.',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAuth = async (e: React.FormEvent, action: 'login' | 'register') => {
     e.preventDefault()
@@ -148,40 +168,111 @@ export default function CadastroCliente() {
           </TabsList>
 
           <TabsContent value="login" className="m-0">
-            <form onSubmit={(e) => handleAuth(e, 'login')}>
-              <CardHeader>
-                <CardTitle className="text-xl">Bem-vindo de volta</CardTitle>
-                <CardDescription>Acesse sua conta para continuar.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full h-12 text-md font-bold" disabled={loading}>
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Entrar'}
-                </Button>
-              </CardFooter>
-            </form>
+            {forgotMode ? (
+              resetSent ? (
+                <>
+                  <CardHeader>
+                    <CardTitle className="text-xl">E-mail enviado!</CardTitle>
+                    <CardDescription>
+                      Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4 py-4">
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <Mail className="w-7 h-7 text-emerald-600" />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => { setForgotMode(false); setResetSent(false) }}
+                    >
+                      Voltar ao login
+                    </Button>
+                  </CardFooter>
+                </>
+              ) : (
+                <form onSubmit={handleForgotPassword}>
+                  <CardHeader>
+                    <CardTitle className="text-xl">Recuperar senha</CardTitle>
+                    <CardDescription>
+                      Informe seu e-mail e enviaremos um link de redefinição.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email">Email</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex flex-col gap-2">
+                    <Button type="submit" className="w-full h-12 font-bold" disabled={loading}>
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar link'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-sm"
+                      onClick={() => setForgotMode(false)}
+                    >
+                      Voltar ao login
+                    </Button>
+                  </CardFooter>
+                </form>
+              )
+            ) : (
+              <form onSubmit={(e) => handleAuth(e, 'login')}>
+                <CardHeader>
+                  <CardTitle className="text-xl">Bem-vindo de volta</CardTitle>
+                  <CardDescription>Acesse sua conta para continuar.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="login-password">Senha</Label>
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(true)}
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full h-12 text-md font-bold" disabled={loading}>
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Entrar'}
+                  </Button>
+                </CardFooter>
+              </form>
+            )}
           </TabsContent>
 
           <TabsContent value="register" className="m-0">

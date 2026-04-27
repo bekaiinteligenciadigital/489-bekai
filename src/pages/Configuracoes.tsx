@@ -5,17 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { User, CreditCard, Users, History, Save, BellRing, Smartphone } from 'lucide-react'
+import { User, CreditCard, Users, History, Save, BellRing, Smartphone, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 import useFamilyStore from '@/stores/useFamilyStore'
 import { ChildProfileItem } from '@/components/ChildProfileItem'
 import { AddChildModal } from '@/components/AddChildModal'
@@ -99,16 +91,40 @@ export default function Configuracoes() {
     }
   }
 
+  const authRecord = pb.authStore.record
+  const subscriptionStatus = authRecord?.subscription_status || 'trialing'
+  const activePlanId = authRecord?.active_plan || ''
+
   const isSpecialist =
+    activePlanId === 'clinical_expert' ||
     plan === 'Pacote Specialist' ||
     plan === 'Plano Specialist' ||
     plan === 'Plano Essencial com Especialista'
   const getPlanLimit = () => essentialChildrenCount || 2
 
-  const txHistory = [
-    { id: '#1002', date: '15/10/2023', amount: 'R$ 89,90', status: 'Pago' },
-    { id: '#1001', date: '15/09/2023', amount: 'R$ 89,90', status: 'Pago' },
-  ]
+  const statusConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+    active: {
+      label: 'Ativa',
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+    trialing: {
+      label: 'Período de Teste',
+      icon: <Clock className="w-4 h-4" />,
+      className: 'bg-blue-50 text-blue-700 border-blue-200',
+    },
+    canceled: {
+      label: 'Cancelada',
+      icon: <AlertCircle className="w-4 h-4" />,
+      className: 'bg-red-50 text-red-700 border-red-200',
+    },
+    past_due: {
+      label: 'Pagamento Pendente',
+      icon: <AlertCircle className="w-4 h-4" />,
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+    },
+  }
+  const statusInfo = statusConfig[subscriptionStatus] ?? statusConfig['trialing']
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
@@ -292,15 +308,24 @@ export default function Configuracoes() {
           <div className="grid md:grid-cols-2 gap-6 items-start">
             <Card className="shadow-sm border-secondary/20 bg-gradient-to-b from-background to-secondary/5 h-full">
               <CardHeader className="border-b border-secondary/10 pb-4">
-                <CardTitle className="text-lg">Assinatura Atual</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Assinatura Atual</CardTitle>
+                  <Badge
+                    variant="outline"
+                    className={`flex items-center gap-1.5 text-xs font-semibold shadow-sm ${statusInfo.className}`}
+                  >
+                    {statusInfo.icon}
+                    {statusInfo.label}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="pt-6 flex flex-col justify-between h-[calc(100%-60px)] space-y-4">
                 <div>
-                  <p className="font-bold text-2xl text-primary">{plan}</p>
+                  <p className="font-bold text-2xl text-primary">{plan || 'Sem plano ativo'}</p>
                   <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                     {isSpecialist
-                      ? 'Plano Essencial com Especialista ativo. Acesso total à Ponte de Apoio e relatórios avançados de influência.'
-                      : 'Plano Essencial ativo com Agente Autônomo. Faça o upgrade para desbloquear suporte de Especialistas.'}
+                      ? 'Acesso total à Ponte de Apoio e relatórios avançados de influência clínica.'
+                      : 'Agente Autônomo ativo. Faça o upgrade para desbloquear suporte de Especialistas.'}
                   </p>
                 </div>
                 <Button
@@ -318,19 +343,14 @@ export default function Configuracoes() {
                 <CardTitle className="text-lg">Método de Pagamento</CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-4 border rounded-xl bg-muted/10 shadow-sm">
-                    <div className="bg-background p-2 rounded-md shadow-sm border">
-                      <CreditCard className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm tracking-widest">•••• •••• •••• 4242</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Expira em 12/2026</p>
-                    </div>
+                <div className="flex flex-col items-center justify-center gap-4 py-6 text-center text-muted-foreground border border-dashed rounded-xl bg-muted/10">
+                  <CreditCard className="w-8 h-8 text-muted-foreground/50" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Nenhum cartão cadastrado</p>
+                    <p className="text-xs mt-1">
+                      O gerenciamento de pagamentos será habilitado em breve.
+                    </p>
                   </div>
-                  <Button variant="ghost" className="w-full text-xs">
-                    Atualizar Cartão
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -342,34 +362,14 @@ export default function Configuracoes() {
                 <History className="w-5 h-5 text-secondary" /> Histórico de Pagamentos
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fatura</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {txHistory.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-medium">{tx.id}</TableCell>
-                      <TableCell className="text-muted-foreground">{tx.date}</TableCell>
-                      <TableCell>{tx.amount}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
-                        >
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <CardContent className="py-10">
+              <div className="flex flex-col items-center gap-3 text-center text-muted-foreground">
+                <History className="w-10 h-10 text-muted-foreground/30" />
+                <p className="text-sm font-medium text-foreground">Nenhuma cobrança encontrada</p>
+                <p className="text-xs max-w-xs">
+                  Seu histórico de faturas aparecerá aqui assim que a integração de pagamentos estiver ativa.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
