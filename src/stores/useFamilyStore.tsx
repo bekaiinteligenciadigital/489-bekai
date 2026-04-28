@@ -23,6 +23,9 @@ export type UserProfile = {
   name: string
   email: string
   phone: string
+  whatsapp_enabled?: boolean
+  telegram_enabled?: boolean
+  telegram_id?: string
 }
 
 export type PendingAnalysis = {
@@ -139,6 +142,9 @@ export const FamilyProvider = ({ children }: { children: React.ReactNode }) => {
       name: record.name || '',
       email: record.email || '',
       phone: record.phone || '',
+      whatsapp_enabled: record.whatsapp_enabled || false,
+      telegram_enabled: record.telegram_enabled || false,
+      telegram_id: record.telegram_id || '',
     })
 
     const planId = record.active_plan || 'essencial_familia'

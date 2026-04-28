@@ -14,6 +14,8 @@ import { AddChildModal } from '@/components/AddChildModal'
 import { useNavigate } from 'react-router-dom'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
+import { getReportHistory } from '@/services/report_history'
+import { listModuleProgress, ModuleProgressRecord } from '@/services/moduleProgress'
 
 export default function Configuracoes() {
   const { toast } = useToast()
@@ -28,6 +30,8 @@ export default function Configuracoes() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(false)
   const [telegramEnabled, setTelegramEnabled] = useState(false)
   const [telegramId, setTelegramId] = useState('')
+  const [recentReports, setRecentReports] = useState<any[]>([])
+  const [moduleProgress, setModuleProgress] = useState<ModuleProgressRecord[]>([])
 
   useEffect(() => {
     if (user) {
@@ -45,6 +49,25 @@ export default function Configuracoes() {
       setWhatsappEnabled(r.whatsapp_enabled || false)
       setTelegramEnabled(r.telegram_enabled || false)
       setTelegramId(r.telegram_id || '')
+    }
+  }, [user])
+
+  useEffect(() => {
+    const loadActivityData = async () => {
+      try {
+        const [reports, progress] = await Promise.all([
+          getReportHistory().catch(() => []),
+          listModuleProgress().catch(() => []),
+        ])
+        setRecentReports(reports.slice(0, 3))
+        setModuleProgress(progress.slice(0, 4))
+      } catch (err) {
+        console.error('Failed to load settings activity data', err)
+      }
+    }
+
+    if (pb.authStore.record?.id) {
+      loadActivityData()
     }
   }, [user])
 
@@ -270,6 +293,81 @@ export default function Configuracoes() {
                 <Button onClick={handleSave} className="gap-2 shadow-sm">
                   <Save className="w-4 h-4" /> Salvar Preferências
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="bg-muted/20 border-b pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <History className="w-5 h-5 text-secondary" /> Atividade do Sistema
+              </CardTitle>
+              <CardDescription>
+                Acompanhe o progresso dos modulos educativos e os relatÃ³rios gerados mais recentemente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Progresso dos Modulos
+                  </h4>
+                  {moduleProgress.length === 0 ? (
+                    <div className="rounded-xl border border-dashed bg-muted/10 p-4 text-sm text-muted-foreground">
+                      Nenhum progresso registrado ainda. Ao usar o Framework e o Manual, o sistema passa a salvar sua evolucao automaticamente.
+                    </div>
+                  ) : (
+                    moduleProgress.map((module) => {
+                      const percent =
+                        module.totalItems > 0
+                          ? Math.round((module.completedItems / module.totalItems) * 100)
+                          : 0
+                      return (
+                        <div key={module.moduleKey} className="rounded-xl border bg-background p-4 space-y-2 shadow-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-medium text-sm capitalize">
+                              {module.moduleKey.replaceAll('_', ' ')}
+                            </span>
+                            <Badge variant="outline">{percent}%</Badge>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${percent}%` }} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {module.completedItems}/{module.totalItems} itens concluÃ­dos
+                          </p>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Relatorios Recentes
+                  </h4>
+                  {recentReports.length === 0 ? (
+                    <div className="rounded-xl border border-dashed bg-muted/10 p-4 text-sm text-muted-foreground">
+                      Nenhum relatorio encontrado ainda. Eles aparecerao aqui quando voce gerar um export no dashboard.
+                    </div>
+                  ) : (
+                    recentReports.map((report) => (
+                      <div key={report.id} className="rounded-xl border bg-background p-4 shadow-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-sm text-foreground">{report.title}</p>
+                          <Badge variant="secondary">{report.type}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {new Date(report.created).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -39,6 +39,8 @@ import {
   syncSocialData,
 } from '@/services/monitoring'
 
+const ACTIVE_CHILD_STORAGE_KEY = 'bekai:parent-dashboard:active-child'
+
 export default function ParentDashboard() {
   const { user, plan } = useFamilyStore()
   const [children, setChildren] = useState<Child[]>([])
@@ -49,6 +51,9 @@ export default function ParentDashboard() {
   const [library, setLibrary] = useState<ScientificRef[]>([])
   const [connections, setConnections] = useState<SocialConnection[]>([])
   const [syncJobs, setSyncJobs] = useState<SyncJob[]>([])
+  const [reportHistory, setReportHistory] = useState<any[]>([])
+  const [actionPlans, setActionPlans] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<any[]>([])
 
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [referralModalOpen, setReferralModalOpen] = useState(false)
@@ -60,13 +65,23 @@ export default function ParentDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const kids = await getMyChildren()
+      const [kids, refs, notif] = await Promise.all([
+        getMyChildren(),
+        getScientificLibrary(),
+        pb.collection('notifications').getFullList({ sort: '-created' }).catch(() => []),
+      ])
       setChildren(kids)
       if (kids.length > 0 && !activeChildId) {
-        setActiveChildId(kids[0].id)
+        const storedChildId =
+          typeof window !== 'undefined'
+            ? window.localStorage.getItem(ACTIVE_CHILD_STORAGE_KEY)
+            : null
+        setActiveChildId(
+          storedChildId && kids.some((kid) => kid.id === storedChildId) ? storedChildId : kids[0].id,
+        )
       }
-      const refs = await getScientificLibrary()
       setLibrary(refs)
+      setNotifications(notif)
     } catch (err) {
       console.error('Failed to load base dashboard data', err)
     } finally {
@@ -76,18 +91,26 @@ export default function ParentDashboard() {
 
   const loadChildData = useCallback(async (childId: string) => {
     try {
-      const [evts, analyses, social, jobs, assessments] = await Promise.all([
+      const [evts, analyses, social, jobs, assessments, reports, plans] = await Promise.all([
         getChildDigitalEvents(childId),
         getChildAnalysis(childId),
         getChildSocialConnections(childId),
         getChildSyncJobs(childId),
         pb.collection('assessments').getFullList({ filter: `child = "${childId}"` }),
+        pb.collection('report_history').getFullList({ filter: `child = "${childId}"`, sort: '-created' }).catch(() => []),
+        pb.collection('action_plans').getFullList({
+          filter: `child = "${childId}"`,
+          sort: '-created',
+          expand: 'bundle',
+        }).catch(() => []),
       ])
 
       setEvents(evts)
       setAnalysisRecords(analyses)
       setConnections(social)
       setSyncJobs(jobs)
+      setReportHistory(reports)
+      setActionPlans(plans)
       setIsAnalyzing(assessments.some((a) => a.status === 'submitted'))
     } catch (err) {
       console.error('Failed to load child specific data', err)
@@ -101,6 +124,12 @@ export default function ParentDashboard() {
   useEffect(() => {
     if (activeChildId) loadChildData(activeChildId)
   }, [activeChildId, loadChildData])
+
+  useEffect(() => {
+    if (activeChildId && typeof window !== 'undefined') {
+      window.localStorage.setItem(ACTIVE_CHILD_STORAGE_KEY, activeChildId)
+    }
+  }, [activeChildId])
 
   useRealtime('digital_events', () => {
     if (activeChildId) loadChildData(activeChildId)
@@ -124,6 +153,9 @@ export default function ParentDashboard() {
   const activeChild = children.find((c) => c.id === activeChildId) || null
   const latestAnalysis = analysisRecords[0] || null
   const latestSyncJob = syncJobs[0] || null
+  const latestReport = reportHistory[0] || null
+  const activePlan = actionPlans.find((plan) => plan.status === 'active') || actionPlans[0] || null
+  const unreadNotifications = notifications.filter((item) => !item.is_read).length
 
   const getRiskColor = (level: string) => {
     switch (level?.toLowerCase()) {
@@ -296,6 +328,10 @@ export default function ParentDashboard() {
                 <p className="text-xs text-primary-foreground/70 mt-1">DQ Score</p>
               </div>
             )}
+            <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
+              <p className="text-2xl font-bold">{unreadNotifications}</p>
+              <p className="text-xs text-primary-foreground/70 mt-1">Alertas</p>
+            </div>
           </div>
         </div>
       </div>
@@ -444,6 +480,51 @@ export default function ParentDashboard() {
                     {latestAnalysis?.insights_summary ||
                       'Nenhum insight consolidado no momento. Continue acompanhando os eventos para que o Agente BekAI gere recomendações.'}
                   </p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Estado Operacional</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Plano ativo</span>
+                    <Badge variant="outline">
+                      {activePlan?.status === 'active'
+                        ? 'Em execucao'
+                        : activePlan?.status === 'completed'
+                          ? 'Concluido'
+                          : activePlan?.status === 'pending'
+                            ? 'Pendente'
+                            : 'Nao gerado'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Relatorios gerados</span>
+                    <span className="font-semibold">{reportHistory.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Eventos sincronizados</span>
+                    <span className="font-semibold">{events.length}</span>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 border p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Ultimo relatorio
+                    </p>
+                    <p className="mt-1 font-medium text-foreground">
+                      {latestReport?.title || 'Ainda nao gerado'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {latestReport
+                        ? new Date(latestReport.created).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : 'Gere um relatorio para acompanhar a evolucao do caso.'}
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </div>

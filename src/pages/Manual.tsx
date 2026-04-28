@@ -10,51 +10,87 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { BookOpenText, Search, BookA, ArrowRight, Loader2, HelpCircle } from 'lucide-react'
+import {
+  BookOpenText,
+  Search,
+  BookA,
+  ArrowRight,
+  Loader2,
+  HelpCircle,
+  CheckCircle2,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import pb from '@/lib/pocketbase/client'
+import { loadModuleProgress, saveModuleProgress } from '@/services/moduleProgress'
 
 const FALLBACK_CHAPTERS = [
   {
-    id: 'f1', number: 1, title: 'Introdução ao BekAI e Literacia Digital',
-    content: `<p>O BekAI é uma plataforma de <strong>literacia digital familiar</strong> que ajuda responsáveis a compreenderem e orientarem o impacto das redes sociais no desenvolvimento de crianças e adolescentes.</p>
-    <p>Literacia digital vai além do uso de tecnologia — trata-se da <strong>capacidade crítica de consumir, avaliar e produzir conteúdo digital</strong> de forma consciente e saudável.</p>`,
+    id: 'f1',
+    number: 1,
+    title: 'Introducao ao BekAI e Literacia Digital',
+    content:
+      '<p>O BekAI ajuda responsaveis a compreenderem e orientarem o impacto das redes sociais no desenvolvimento de criancas e adolescentes.</p><p>Literacia digital vai alem do uso de tecnologia: trata-se da capacidade critica de consumir, avaliar e produzir conteudo digital de forma consciente e saudavel.</p>',
     route_reference: '/monitoramento',
   },
   {
-    id: 'f2', number: 2, title: 'Como Realizar o Mapeamento de Influência',
-    content: `<p>O Mapeamento de Influência é o primeiro passo do processo BekAI. Você irá:</p>
-    <ol class="list-decimal pl-6 space-y-2 mt-2"><li>Selecionar o perfil do jovem a ser analisado</li><li>Indicar as plataformas de maior uso</li><li>Marcar comportamentos observados (padrões de risco)</li><li>Aguardar o Agente BekAI gerar o perfil de influência digital</li></ol>`,
+    id: 'f2',
+    number: 2,
+    title: 'Como Realizar o Mapeamento de Influencia',
+    content:
+      '<p>O Mapeamento de Influencia e o primeiro passo do processo BekAI.</p><ol class="list-decimal pl-6 space-y-2 mt-2"><li>Selecionar o perfil do jovem</li><li>Indicar as plataformas de maior uso</li><li>Marcar comportamentos observados</li><li>Aguardar o Agente BekAI gerar o perfil</li></ol>',
     route_reference: '/analise',
   },
   {
-    id: 'f3', number: 3, title: 'Entendendo o DQ Score e Níveis de Risco',
-    content: `<p>O <strong>Quociente Digital (DQ)</strong> é uma pontuação de 0 a 100 que mede a qualidade do consumo digital. Quanto maior, mais saudável o perfil.</p>
-    <p>Os <strong>Níveis de Risco</strong> são: <em>Baixo, Moderado, Alto</em> e <em>Crítico</em>. Cada nível determina a urgência da intervenção e o tipo de plano de ação gerado pelo Agente.</p>`,
+    id: 'f3',
+    number: 3,
+    title: 'Entendendo o DQ Score e Niveis de Risco',
+    content:
+      '<p>O Quociente Digital e uma pontuacao de 0 a 100 que mede a qualidade do consumo digital.</p><p>Os niveis de risco sao: Baixo, Moderado, Alto e Critico. Cada nivel determina a urgencia da intervencao.</p>',
     route_reference: '/resultado',
   },
   {
-    id: 'f4', number: 4, title: 'Agente Autônomo: Como Funciona',
-    content: `<p>O Agente Autônomo BekAI gera <strong>planos de ação personalizados</strong> baseados no perfil de influência digital. Ele utiliza a técnica de <em>Equivalência Estética</em> para substituir conteúdos nocivos por conteúdos construtivos.</p>
-    <p>Você pode ativar um plano de ação e acompanhar a evolução quantitativa (tempo de tela) e qualitativa (aceitação de conteúdo positivo) do jovem.</p>`,
-    route_reference: '/plano',
+    id: 'f4',
+    number: 4,
+    title: 'Agente Autonomo: Como Funciona',
+    content:
+      '<p>O Agente Autonomo BekAI gera planos de acao personalizados baseados no perfil de influencia digital.</p><p>Ele utiliza a tecnica de Equivalencia Estetica para substituir conteudos nocivos por conteudos construtivos.</p>',
+    route_reference: '/agente-autonomo',
   },
   {
-    id: 'f5', number: 5, title: 'Configurando Alertas e Notificações',
-    content: `<p>O BekAI suporta alertas via <strong>WhatsApp</strong> e <strong>Telegram</strong>. Configure nas Configurações para receber notificações imediatas quando riscos críticos forem detectados.</p>
-    <p>Para WhatsApp, inclua o código do país no número (ex: +55 11 99999-9999). Para Telegram, inicie o bot oficial BekAI e obtenha seu Chat ID com o comando /start.</p>`,
+    id: 'f5',
+    number: 5,
+    title: 'Configurando Alertas e Notificacoes',
+    content:
+      '<p>O BekAI suporta alertas via WhatsApp e Telegram. Configure nas Configuracoes para receber notificacoes quando riscos criticos forem detectados.</p>',
     route_reference: '/config',
   },
 ]
 
 const FALLBACK_GLOSSARY = [
-  { id: 'g1', term: 'DQ Score (Quociente Digital)', definition: 'Pontuação de 0 a 100 que representa a qualidade do consumo digital de um jovem. Avalia múltiplas dimensões de risco e saúde digital.' },
-  { id: 'g2', term: 'Vaping de Atenção', definition: 'Padrão de consumo passivo e ininterrupto de vídeos curtos, caracterizado pela absorção acelerada de informações rasas sem filtro crítico, gerando conformismo e letargia.' },
-  { id: 'g3', term: 'Equivalência Estética', definition: 'Técnica do Agente BekAI que consiste em substituir conteúdos nocivos por conteúdos de qualidade visual equivalente, mas com narrativas construtivas e virtuosas.' },
-  { id: 'g4', term: 'BDIC (Base de Dados de Inteligência Clínica)', definition: 'Repositório de criadores, conteúdos e referências científicas curados pela equipe BekAI para apoiar as recomendações do Agente Autônomo.' },
-  { id: 'g5', term: 'Técnica D.C.D.', definition: 'Método de orientação parental: Duvidar da perfeição digital, Criticar as narrativas de ódio e Determinar o próprio caminho offline.' },
-  { id: 'g6', term: 'Niilismo Algorítmico', definition: 'Padrão de consumo de conteúdo que promove a ideia de que nada tem valor ou sentido, frequentemente encontrado em conteúdos "core" e de desabafo nas redes sociais.' },
-  { id: 'g7', term: 'Comparação Social Ascendente', definition: 'Comportamento induzido por algoritmos que exibem padrões de vida irreais, levando à insatisfação crônica e ao sentimento de inadequação.' },
+  {
+    id: 'g1',
+    term: 'DQ Score (Quociente Digital)',
+    definition:
+      'Pontuacao de 0 a 100 que representa a qualidade do consumo digital de um jovem.',
+  },
+  {
+    id: 'g2',
+    term: 'Vaping de Atencao',
+    definition:
+      'Padrao de consumo passivo e ininterrupto de videos curtos, com absorcao acelerada de informacoes rasas.',
+  },
+  {
+    id: 'g3',
+    term: 'Equivalencia Estetica',
+    definition:
+      'Tecnica do Agente BekAI que substitui conteudos nocivos por conteudos de qualidade visual equivalente, mas com narrativas construtivas.',
+  },
+  {
+    id: 'g4',
+    term: 'BDIC',
+    definition:
+      'Base de Dados de Inteligencia Clinica, com criadores, conteudos e referencias cientificas curadas.',
+  },
 ]
 
 export default function Manual() {
@@ -62,31 +98,84 @@ export default function Manual() {
   const [glossary, setGlossary] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchGlossary, setSearchGlossary] = useState('')
+  const [viewedChapters, setViewedChapters] = useState<string[]>([])
+  const [viewedGlossary, setViewedGlossary] = useState<string[]>([])
 
   useEffect(() => {
+    let mounted = true
+
     const fetchManualData = async () => {
       try {
-        const [chaps, terms] = await Promise.all([
-          pb.collection('manual_chapters').getFullList({ sort: 'number' }),
-          pb.collection('glossary_terms').getFullList({ sort: 'term' }),
+        const [chaps, terms, progress] = await Promise.all([
+          pb.collection('manual_chapters').getFullList({ sort: 'number' }).catch(() => []),
+          pb.collection('glossary_terms').getFullList({ sort: 'term' }).catch(() => []),
+          loadModuleProgress('manual_bekai'),
         ])
+
+        if (!mounted) return
+
         setChapters(chaps.length > 0 ? chaps : FALLBACK_CHAPTERS)
         setGlossary(terms.length > 0 ? terms : FALLBACK_GLOSSARY)
+        setViewedChapters(
+          Array.isArray(progress.progressJson.viewedChapters)
+            ? progress.progressJson.viewedChapters
+            : [],
+        )
+        setViewedGlossary(
+          Array.isArray(progress.progressJson.viewedGlossary)
+            ? progress.progressJson.viewedGlossary
+            : [],
+        )
       } catch (err) {
         console.error('Error fetching manual:', err)
-        setChapters(FALLBACK_CHAPTERS)
-        setGlossary(FALLBACK_GLOSSARY)
+        if (mounted) {
+          setChapters(FALLBACK_CHAPTERS)
+          setGlossary(FALLBACK_GLOSSARY)
+        }
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
+
     fetchManualData()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
+  const markChapterViewed = (chapterId: string) => {
+    setViewedChapters((prev) => {
+      const next = prev.includes(chapterId) ? prev : [...prev, chapterId]
+      void saveModuleProgress('manual_bekai', {
+        completedItems: next.length,
+        totalItems: chapters.length || FALLBACK_CHAPTERS.length,
+        completed: next.length >= (chapters.length || FALLBACK_CHAPTERS.length),
+        lastViewedKey: chapterId,
+        progressJson: { viewedChapters: next, viewedGlossary },
+      })
+      return next
+    })
+  }
+
+  const markGlossaryViewed = (termId: string) => {
+    setViewedGlossary((prev) => {
+      const next = prev.includes(termId) ? prev : [...prev, termId]
+      void saveModuleProgress('manual_bekai', {
+        completedItems: viewedChapters.length,
+        totalItems: chapters.length || FALLBACK_CHAPTERS.length,
+        completed: viewedChapters.length >= (chapters.length || FALLBACK_CHAPTERS.length),
+        lastViewedKey: termId,
+        progressJson: { viewedChapters, viewedGlossary: next },
+      })
+      return next
+    })
+  }
+
   const filteredGlossary = glossary.filter(
-    (g) =>
-      g.term.toLowerCase().includes(searchGlossary.toLowerCase()) ||
-      g.definition.toLowerCase().includes(searchGlossary.toLowerCase()),
+    (item) =>
+      item.term.toLowerCase().includes(searchGlossary.toLowerCase()) ||
+      item.definition.toLowerCase().includes(searchGlossary.toLowerCase()),
   )
 
   if (loading) {
@@ -105,19 +194,31 @@ export default function Manual() {
           <BookOpenText className="w-10 h-10 text-secondary shrink-0" /> Manual BekAI
         </h1>
         <p className="text-muted-foreground text-base md:text-lg max-w-3xl leading-relaxed">
-          O centro de conhecimento completo da plataforma. Entenda as fases de diagnóstico,
-          interprete as métricas clínicas corretamente e aprenda a navegar pelo ecossistema de
-          Literacia Familiar.
+          O centro de conhecimento da plataforma para entender o diagnostico, interpretar metricas
+          clinicas e navegar pelos modulos da jornada.
         </p>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Badge variant="outline" className="border-primary/20 text-primary">
+            {viewedChapters.length}/{chapters.length || FALLBACK_CHAPTERS.length} capitulos lidos
+          </Badge>
+          <Badge variant="outline" className="border-secondary/30 text-secondary">
+            {viewedGlossary.length} termos explorados
+          </Badge>
+          {viewedChapters.length >= (chapters.length || FALLBACK_CHAPTERS.length) && (
+            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Manual concluido
+            </Badge>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="chapters" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md mb-8">
           <TabsTrigger value="chapters" className="flex items-center gap-2">
-            <BookOpenText className="w-4 h-4" /> Capítulos
+            <BookOpenText className="w-4 h-4" /> Capitulos
           </TabsTrigger>
           <TabsTrigger value="glossary" className="flex items-center gap-2">
-            <BookA className="w-4 h-4" /> Glossário Técnico
+            <BookA className="w-4 h-4" /> Glossario Tecnico
           </TabsTrigger>
         </TabsList>
 
@@ -125,30 +226,42 @@ export default function Manual() {
           {chapters.length === 0 ? (
             <Card className="bg-muted/30 border-dashed text-center py-12">
               <HelpCircle className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-              <CardTitle>Nenhum capítulo encontrado</CardTitle>
+              <CardTitle>Nenhum capitulo encontrado</CardTitle>
             </Card>
           ) : (
-            <div className="grid gap-6 relative">
-              <div className="absolute left-6 top-10 bottom-10 w-0.5 bg-primary/10 hidden md:block" />
+            <Accordion
+              type="single"
+              collapsible
+              className="space-y-4"
+              onValueChange={(value) => {
+                if (value) markChapterViewed(value)
+              }}
+            >
               {chapters.map((chapter) => (
-                <Card
+                <AccordionItem
                   key={chapter.id}
-                  className="relative z-10 shadow-sm border-l-4 border-l-primary hover:shadow-md transition-shadow"
+                  value={chapter.id}
+                  className={`border rounded-2xl px-6 bg-background shadow-sm ${viewedChapters.includes(chapter.id) ? 'border-emerald-200' : 'hover:border-primary/30'}`}
                 >
-                  <CardHeader className="pb-3 flex flex-row items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg shrink-0 shadow-inner">
-                      {chapter.number}
+                  <AccordionTrigger className="hover:no-underline py-5">
+                    <div className="flex items-center gap-4 text-left">
+                      <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg shrink-0">
+                        {chapter.number}
+                      </div>
+                      <div>
+                        <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-primary/70 mb-1">
+                          Capitulo {chapter.number}
+                        </CardDescription>
+                        <CardTitle className="text-xl md:text-2xl text-foreground flex items-center gap-2">
+                          {chapter.title}
+                          {viewedChapters.includes(chapter.id) && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          )}
+                        </CardTitle>
+                      </div>
                     </div>
-                    <div>
-                      <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-primary/70 mb-1">
-                        Capítulo {chapter.number}
-                      </CardDescription>
-                      <CardTitle className="text-xl md:text-2xl text-foreground">
-                        {chapter.title}
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6">
                     <div
                       className="text-muted-foreground leading-relaxed text-sm md:text-base prose prose-sm max-w-none prose-p:mb-4 prose-strong:text-primary"
                       dangerouslySetInnerHTML={{ __html: chapter.content }}
@@ -160,14 +273,14 @@ export default function Manual() {
                         className="mt-6 gap-2 border-primary/20 text-primary hover:bg-primary/5"
                       >
                         <Link to={chapter.route_reference}>
-                          Acessar Módulo <ArrowRight className="w-4 h-4" />
+                          Acessar Modulo <ArrowRight className="w-4 h-4" />
                         </Link>
                       </Button>
                     )}
-                  </CardContent>
-                </Card>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           )}
         </TabsContent>
 
@@ -176,7 +289,7 @@ export default function Manual() {
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Buscar termo técnico..."
+                placeholder="Buscar termo tecnico..."
                 className="pl-9 bg-background shadow-sm"
                 value={searchGlossary}
                 onChange={(e) => setSearchGlossary(e.target.value)}
@@ -187,7 +300,14 @@ export default function Manual() {
             </p>
           </div>
 
-          <Accordion type="single" collapsible className="w-full space-y-3">
+          <Accordion
+            type="single"
+            collapsible
+            className="w-full space-y-3"
+            onValueChange={(value) => {
+              if (value) markGlossaryViewed(value)
+            }}
+          >
             {filteredGlossary.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 Nenhum termo encontrado para "{searchGlossary}".
@@ -208,6 +328,9 @@ export default function Manual() {
                         {term.term.charAt(0)}
                       </Badge>
                       {term.term}
+                      {viewedGlossary.includes(term.id) && (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      )}
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground leading-relaxed pb-4 pl-12">

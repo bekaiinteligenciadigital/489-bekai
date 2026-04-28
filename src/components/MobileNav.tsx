@@ -3,9 +3,9 @@ import { LayoutDashboard, FileText, Bot, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const mobileNavItems = [
-  { path: '/dashboard', label: 'Início', icon: LayoutDashboard },
-  { path: '/analise', label: 'Análise', icon: FileText },
-  { path: '/plano', label: 'Agente', icon: Bot },
+  { path: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
+  { path: '/analise', label: 'Analise', icon: FileText },
+  { path: '/agente-autonomo', label: 'Agente', icon: Bot },
   { path: '/config', label: 'Config', icon: Settings },
 ]
 

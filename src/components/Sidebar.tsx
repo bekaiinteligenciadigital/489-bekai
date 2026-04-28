@@ -18,13 +18,13 @@ import logoUrl from '@/assets/logo-final-bekai-ac6d9.jpeg'
 
 export const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/analise', label: 'Mapeamento de Influência', icon: FileText },
-  { path: '/scanner', label: 'Mapeador de Influência Digital', icon: Activity },
-  { path: '/plano', label: 'Agente Autônomo', icon: Bot },
+  { path: '/analise', label: 'Mapeamento de Influencia', icon: FileText },
+  { path: '/scanner', label: 'Mapeador de Influencia Digital', icon: Activity },
+  { path: '/agente-autonomo', label: 'Agente Autonomo', icon: Bot },
   { path: '/biblioteca', label: 'Biblioteca', icon: Library },
-  { path: '/framework-inteligencia', label: 'Framework de Inteligência', icon: BookOpen },
+  { path: '/framework-inteligencia', label: 'Framework de Inteligencia', icon: BookOpen },
   { path: '/manual', label: 'Manual BekAI', icon: BookOpenText },
-  { path: '/config', label: 'Configurações', icon: Settings },
+  { path: '/config', label: 'Configuracoes', icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -67,7 +67,7 @@ export default function Sidebar() {
             alt="Profile"
           />
           <div className="flex flex-col overflow-hidden min-w-0">
-            <span className="font-bold text-sm truncate">{user?.name || 'Usuário'}</span>
+            <span className="font-bold text-sm truncate">{user?.name || 'Usuario'}</span>
             <span className="text-[10px] text-primary-foreground/70 uppercase tracking-wider font-semibold truncate">
               {plan}
             </span>
@@ -76,7 +76,10 @@ export default function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground gap-3 h-9"
-          onClick={() => { signOut(); navigate('/') }}
+          onClick={() => {
+            signOut()
+            navigate('/')
+          }}
         >
           <LogOut className="w-4 h-4" />
           Sair

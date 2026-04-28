@@ -28,6 +28,7 @@ import ScannerPlano from './pages/scanner/ScannerPlano'
 import ScannerEvolucao from './pages/scanner/ScannerEvolucao'
 import ScannerGuia from './pages/scanner/ScannerGuia'
 import FrameworkInteligencia from './pages/FrameworkInteligencia'
+import AgenteAutonomo from './pages/AgenteAutonomo'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import ReportLibrary from './pages/ReportLibrary'
 import Manual from './pages/Manual'
@@ -82,6 +83,7 @@ const App = () => (
                   <Route path="/resultado" element={<Resultado />} />
                   <Route path="/mapeamento-riscos" element={<Resultado />} />
                   <Route path="/plano" element={<PlanoDeAcao />} />
+                  <Route path="/agente-autonomo" element={<AgenteAutonomo />} />
                   <Route path="/ativacao" element={<PlanoDeAcao />} />
                   <Route path="/biblioteca" element={<Biblioteca />} />
                   <Route path="/rebalanceamento" element={<Biblioteca />} />
