@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { BrainCircuit, CheckCircle2, AlertCircle } from 'lucide-react'
 import { generateRiskAnalysis } from '@/services/ai'
 import useFamilyStore from '@/stores/useFamilyStore'
+import pb from '@/lib/pocketbase/client'
 
 const STAGES = [
   'Mapeando plataformas e padrões comportamentais...',
@@ -55,6 +56,25 @@ export function AnaliseProcessando() {
         if (cancelled) return
 
         setAIResults({ analysisResult: result, analyzedChildId: pendingAnalysis.childId })
+
+        // Persist analysis record to PocketBase
+        try {
+          await pb.collection('analysis_records').create({
+            child: pendingAnalysis.childId,
+            dq_score: result.overallScore,
+            risk_level: result.overallRisk,
+            insights_summary: result.summary,
+            behavior_patterns: {
+              platforms: pendingAnalysis.platforms,
+              behaviors: pendingAnalysis.behaviors,
+              scores: result.scores,
+              primaryConcern: result.primaryConcern,
+              algorithmicProfile: result.algorithmicProfile,
+            },
+          })
+        } catch (persistErr) {
+          console.warn('Could not persist analysis record:', persistErr)
+        }
 
         clearInterval(interval)
         setProgress(100)

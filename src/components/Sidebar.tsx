@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   FileText,
@@ -6,7 +6,6 @@ import {
   Library,
   Settings,
   LogOut,
-  ShieldAlert,
   Activity,
   BookOpen,
   BookOpenText,
@@ -14,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import useFamilyStore from '@/stores/useFamilyStore'
+import { useAuth } from '@/hooks/use-auth'
 import logoUrl from '@/assets/logo-final-bekai-ac6d9.jpeg'
 
 export const navItems = [
@@ -29,7 +29,9 @@ export const navItems = [
 
 export default function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user, plan } = useFamilyStore()
+  const { signOut } = useAuth()
 
   return (
     <aside className="hidden md:flex flex-col w-64 bg-primary text-primary-foreground h-full border-r border-primary/20 shrink-0">
@@ -74,12 +76,10 @@ export default function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground gap-3 h-9"
-          asChild
+          onClick={() => { signOut(); navigate('/') }}
         >
-          <Link to="/">
-            <LogOut className="w-4 h-4" />
-            Sair
-          </Link>
+          <LogOut className="w-4 h-4" />
+          Sair
         </Button>
       </div>
     </aside>

@@ -25,6 +25,7 @@ import { TermTooltip } from '@/components/ui/glossary-tooltip'
 import pb from '@/lib/pocketbase/client'
 import { AnaliseProcessando } from '@/components/AnaliseProcessando'
 import { ConsentModal } from '@/components/parent/ConsentModal'
+import useFamilyStore from '@/stores/useFamilyStore'
 import { SocialConnectionsPanel } from '@/components/parent/SocialConnectionsPanel'
 import {
   SocialConnection,
@@ -39,6 +40,7 @@ import {
 } from '@/services/monitoring'
 
 export default function ParentDashboard() {
+  const { user, plan } = useFamilyStore()
   const [children, setChildren] = useState<Child[]>([])
   const [activeChildId, setActiveChildId] = useState<string>('')
 
@@ -254,8 +256,59 @@ export default function ParentDashboard() {
     )
   }
 
+  const firstName = (user?.name || pb.authStore.record?.name || 'Responsável').split(' ')[0]
+  const totalChildren = children.length
+  const activeChildren = children.filter(
+    (c) => (c as any).monitoring_status === 'active' || (c as any).consent_accepted,
+  ).length
+  const pendingConsent = children.filter((c) => !(c as any).consent_accepted).length
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8 animate-fade-in">
+      {/* Welcome Header with real user data */}
+      <div className="rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground p-6 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <p className="text-primary-foreground/70 text-sm font-medium uppercase tracking-wider mb-1">
+              Bem-vindo ao painel
+            </p>
+            <h1 className="text-3xl font-serif font-bold tracking-tight">
+              Olá, {firstName}!
+            </h1>
+            {plan && (
+              <span className="inline-block mt-2 px-3 py-0.5 rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wider">
+                {plan}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-4">
+            <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
+              <p className="text-2xl font-bold">{totalChildren}</p>
+              <p className="text-xs text-primary-foreground/70 mt-1">Perfis</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
+              <p className="text-2xl font-bold">{activeChildren}</p>
+              <p className="text-xs text-primary-foreground/70 mt-1">Ativos</p>
+            </div>
+            {latestAnalysis && (
+              <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
+                <p className="text-2xl font-bold">{latestAnalysis.dq_score ?? '--'}</p>
+                <p className="text-xs text-primary-foreground/70 mt-1">DQ Score</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {pendingConsent > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <BrainCircuit className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800 leading-relaxed">
+            <strong>{pendingConsent} perfil(s)</strong> aguardam assinatura do Termo de Autorização de Monitoramento.
+          </p>
+        </div>
+      )}
+
       <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
         <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
         <p className="text-sm text-primary/80 leading-relaxed">
@@ -268,9 +321,9 @@ export default function ParentDashboard() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-primary tracking-tight">
+          <h2 className="text-2xl font-serif font-bold text-primary tracking-tight">
             Literacia Familiar
-          </h1>
+          </h2>
           <p className="text-muted-foreground mt-1">
             Acompanhe, entenda e oriente o comportamento digital.
           </p>

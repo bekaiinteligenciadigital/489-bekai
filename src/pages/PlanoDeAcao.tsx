@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Activity, Clock, FileText, Play, Sparkles, AlertCircle, Bot, Loader2, RefreshCw, CheckCircle2, Calendar, Target } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Activity, Clock, FileText, Play, Sparkles, AlertCircle, Bot, Loader2, RefreshCw, CheckCircle2, Calendar, Target, Send, MessageCircle, ArrowRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Separator } from '@/components/ui/separator'
 import { useNavigate } from 'react-router-dom'
 import { TermTooltip } from '@/components/ui/glossary-tooltip'
-import { generateActionPlan } from '@/services/ai'
+import { generateActionPlan, chatWithAssistant } from '@/services/ai'
 import type { ActionPlanResult } from '@/services/ai'
 import useFamilyStore from '@/stores/useFamilyStore'
 
@@ -43,6 +44,47 @@ export default function PlanoDeAcao() {
   const [aiPlan, setAiPlan] = useState<ActionPlanResult | null>(aiResults.actionPlanResult)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+
+  // Agente Autônomo — chat standalone
+  type ChatMsg = { role: 'user' | 'assistant'; content: string }
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
+    {
+      role: 'assistant',
+      content:
+        'Olá! Sou o Agente BekAI. Posso ajudar com estratégias de literacia digital, orientar sobre comportamentos preocupantes ou explicar como funciona a plataforma. O que você gostaria de discutir hoje?',
+    },
+  ])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  const sendChatMessage = async () => {
+    const msg = chatInput.trim()
+    if (!msg || chatLoading) return
+    const newMessages: ChatMsg[] = [...chatMessages, { role: 'user', content: msg }]
+    setChatMessages(newMessages)
+    setChatInput('')
+    setChatLoading(true)
+    try {
+      const reply = await chatWithAssistant(
+        newMessages.map((m) => ({ role: m.role, content: m.content })),
+        {
+          childName: childrenProfiles[0]?.name,
+          platforms: pendingAnalysis?.platforms,
+          overallRisk: aiResults.analysisResult?.overallRisk,
+        },
+      )
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+    } catch (err: any) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.' },
+      ])
+    } finally {
+      setChatLoading(false)
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    }
+  }
 
   const generateAIPlan = async () => {
     if (!aiResults.analysisResult) return
@@ -247,25 +289,88 @@ export default function PlanoDeAcao() {
       )}
 
       {plans.length === 0 && !aiResults.analysisResult ? (
-        <Card className="bg-muted/30 border-dashed border-2">
-          <CardContent className="flex flex-col items-center justify-center py-20 text-center space-y-5">
-            <Sparkles className="w-14 h-14 text-muted-foreground/40" />
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold">Nenhum plano ativo</h3>
-              <p className="text-muted-foreground text-base max-w-sm mx-auto">
-                Complete uma avaliação clínica digital para que nossa inteligência gere seu primeiro
-                plano de ação estruturado.
-              </p>
-            </div>
-            <Button
-              size="lg"
-              className="mt-4 shadow-md font-bold"
-              onClick={() => navigate('/analise')}
-            >
-              Iniciar Avaliação
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          {/* Standalone Agent Chat */}
+          <Card className="shadow-lg border-2 border-primary/20 bg-gradient-to-br from-background to-primary/5">
+            <CardHeader className="border-b border-primary/10 pb-4">
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <MessageCircle className="w-5 h-5" /> Agente BekAI — Modo Consulta
+              </CardTitle>
+              <CardDescription>
+                Converse com o agente para obter orientações sobre literacia digital, mesmo sem análise prévia.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-br-sm'
+                          : 'bg-muted text-foreground rounded-bl-sm'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-sm">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              <div className="flex gap-2 pt-2 border-t">
+                <Textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Faça uma pergunta ao Agente BekAI..."
+                  className="resize-none min-h-[44px] max-h-24 text-sm"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      sendChatMessage()
+                    }
+                  }}
+                />
+                <Button
+                  onClick={sendChatMessage}
+                  disabled={chatLoading || !chatInput.trim()}
+                  size="icon"
+                  className="shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-muted/30 border-dashed border-2">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+              <Sparkles className="w-12 h-12 text-muted-foreground/40" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold">Gerar Plano Estruturado</h3>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                  Complete uma avaliação clínica digital para que nossa inteligência gere um plano de ação personalizado.
+                </p>
+              </div>
+              <Button
+                className="mt-2 shadow-md font-bold gap-2"
+                onClick={() => navigate('/analise')}
+              >
+                Iniciar Avaliação <ArrowRight className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       ) : plans.length > 0 ? (
         <div className="grid gap-8">
           {plans.some((p) => p.status === 'active') && (

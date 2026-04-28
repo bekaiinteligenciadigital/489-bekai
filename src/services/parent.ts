@@ -58,9 +58,9 @@ export interface ScientificRef {
 }
 
 export const getMyChildren = async (): Promise<Child[]> => {
-  if (!pb.authStore.model?.id) return []
+  if (!pb.authStore.record?.id) return []
   return pb.collection('children').getFullList({
-    filter: `parent = "${pb.authStore.model.id}"`,
+    filter: `parent = "${pb.authStore.record.id}"`,
     sort: 'name',
     expand: 'assigned_professional',
   })

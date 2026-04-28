@@ -7,16 +7,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { User, CreditCard, Users, History, Save, BellRing, Smartphone, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { User, CreditCard, Users, History, Save, BellRing, Smartphone, CheckCircle2, Clock, AlertCircle, LogOut } from 'lucide-react'
 import useFamilyStore from '@/stores/useFamilyStore'
 import { ChildProfileItem } from '@/components/ChildProfileItem'
 import { AddChildModal } from '@/components/AddChildModal'
 import { useNavigate } from 'react-router-dom'
 import pb from '@/lib/pocketbase/client'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function Configuracoes() {
   const { toast } = useToast()
   const navigate = useNavigate()
+  const { signOut } = useAuth()
   const { user, plan, childrenProfiles, essentialChildrenCount, setUser, removeChild, addChild } =
     useFamilyStore()
 
@@ -57,8 +59,8 @@ export default function Configuracoes() {
         return
       }
 
-      if (pb.authStore.model?.id) {
-        await pb.collection('Nascimento').update(pb.authStore.model.id, {
+      if (pb.authStore.record?.id) {
+        await pb.collection('Nascimento').update(pb.authStore.record.id, {
           name,
           email,
           phone,
@@ -126,13 +128,27 @@ export default function Configuracoes() {
   }
   const statusInfo = statusConfig[subscriptionStatus] ?? statusConfig['trialing']
 
+  const handleSignOut = () => {
+    signOut()
+    navigate('/')
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
-      <div>
-        <h2 className="text-3xl font-serif font-bold text-primary">Configurações</h2>
-        <p className="text-muted-foreground mt-1">
-          Gerencie sua conta, perfis familiares e detalhes da assinatura.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-serif font-bold text-primary">Configurações</h2>
+          <p className="text-muted-foreground mt-1">
+            Gerencie sua conta, perfis familiares e detalhes da assinatura.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleSignOut}
+          className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive shadow-sm"
+        >
+          <LogOut className="w-4 h-4" /> Sair da Conta
+        </Button>
       </div>
 
       <Tabs defaultValue="perfil" className="w-full">
@@ -277,7 +293,7 @@ export default function Configuracoes() {
                 <AddChildModal
                   onAdd={async (c) => {
                     try {
-                      if (pb.authStore.model?.id) {
+                      if (pb.authStore.record?.id) {
                         await pb.collection('children').create({
                           name: c.name,
                           parent: pb.authStore.model.id,

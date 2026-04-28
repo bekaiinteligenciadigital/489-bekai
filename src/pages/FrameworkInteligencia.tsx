@@ -1,13 +1,37 @@
+import { useState, useEffect } from 'react'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { BookText } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
+import { BookText, CheckCircle2 } from 'lucide-react'
 import { TermTooltip } from '@/components/ui/glossary-tooltip'
 
+const CHAPTERS = ['cap1', 'cap2', 'cap3', 'cap4', 'cap5']
+const STORAGE_KEY = 'bekai_framework_read'
+
 export default function FrameworkInteligencia() {
+  const [readChapters, setReadChapters] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    } catch {
+      return []
+    }
+  })
+
+  const markRead = (chapterId: string) => {
+    setReadChapters((prev) => {
+      const updated = prev.includes(chapterId) ? prev : [...prev, chapterId]
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const progress = Math.round((readChapters.length / CHAPTERS.length) * 100)
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10 animate-fade-in">
       <div className="space-y-4 mt-6 border-b pb-8">
@@ -19,15 +43,38 @@ export default function FrameworkInteligencia() {
           Este framework contém os fundamentos educativos e operacionais focados em literacia
           midiática e desenvolvimento cultural que baseiam o Agente Autônomo da plataforma BekAI.
         </p>
+        <div className="flex items-center gap-4 pt-2">
+          <div className="flex-1 max-w-xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Progresso de Leitura</span>
+              <span className="text-xs font-bold text-primary">{readChapters.length}/{CHAPTERS.length}</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+          {progress === 100 && (
+            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Concluído
+            </Badge>
+          )}
+        </div>
       </div>
 
-      <Accordion type="single" collapsible className="w-full space-y-4" defaultValue="cap1">
+      <Accordion
+        type="single"
+        collapsible
+        className="w-full space-y-4"
+        defaultValue="cap1"
+        onValueChange={(val) => { if (val) markRead(val) }}
+      >
         <AccordionItem
           value="cap1"
-          className="border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors"
+          className={`border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors ${readChapters.includes('cap1') ? 'border-emerald-200' : ''}`}
         >
           <AccordionTrigger className="font-bold text-primary hover:no-underline py-5 text-xl">
-            Capítulo 1: Literacia Midiática e Cidadania Digital
+            <span className="flex items-center gap-3">
+              {readChapters.includes('cap1') && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+              Capítulo 1: Literacia Midiática e Cidadania Digital
+            </span>
           </AccordionTrigger>
           <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-6 space-y-4 pt-2">
             <p>
@@ -44,10 +91,13 @@ export default function FrameworkInteligencia() {
 
         <AccordionItem
           value="cap2"
-          className="border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors"
+          className={`border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors ${readChapters.includes('cap2') ? 'border-emerald-200' : ''}`}
         >
           <AccordionTrigger className="font-bold text-primary hover:no-underline py-5 text-xl">
-            Capítulo 2: Padrões de Influência
+            <span className="flex items-center gap-3">
+              {readChapters.includes('cap2') && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+              Capítulo 2: Padrões de Influência
+            </span>
           </AccordionTrigger>
           <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-6 space-y-4 pt-2">
             <ul className="list-disc pl-6 space-y-3">
@@ -71,10 +121,13 @@ export default function FrameworkInteligencia() {
 
         <AccordionItem
           value="cap3"
-          className="border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors"
+          className={`border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors ${readChapters.includes('cap3') ? 'border-emerald-200' : ''}`}
         >
           <AccordionTrigger className="font-bold text-primary hover:no-underline py-5 text-xl">
-            Capítulo 3: Protocolos de Curadoria e Rotina
+            <span className="flex items-center gap-3">
+              {readChapters.includes('cap3') && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+              Capítulo 3: Protocolos de Curadoria e Rotina
+            </span>
           </AccordionTrigger>
           <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-6 space-y-4 pt-2">
             <p>
@@ -93,10 +146,13 @@ export default function FrameworkInteligencia() {
 
         <AccordionItem
           value="cap4"
-          className="border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors"
+          className={`border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors ${readChapters.includes('cap4') ? 'border-emerald-200' : ''}`}
         >
           <AccordionTrigger className="font-bold text-primary hover:no-underline py-5 text-xl">
-            Capítulo 4: Scripts de Comunicação Parental
+            <span className="flex items-center gap-3">
+              {readChapters.includes('cap4') && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+              Capítulo 4: Scripts de Comunicação Parental
+            </span>
           </AccordionTrigger>
           <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-6 space-y-4 pt-2">
             <p className="text-lg text-primary font-medium mb-2">
@@ -119,10 +175,13 @@ export default function FrameworkInteligencia() {
 
         <AccordionItem
           value="cap5"
-          className="border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors"
+          className={`border rounded-2xl px-6 bg-background shadow-sm hover:border-primary/30 transition-colors ${readChapters.includes('cap5') ? 'border-emerald-200' : ''}`}
         >
           <AccordionTrigger className="font-bold text-primary hover:no-underline py-5 text-xl">
-            Capítulo 5: Limites Educacionais (Disclaimer)
+            <span className="flex items-center gap-3">
+              {readChapters.includes('cap5') && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+              Capítulo 5: Limites Educacionais (Disclaimer)
+            </span>
           </AccordionTrigger>
           <AccordionContent className="text-base text-muted-foreground leading-relaxed pb-6 space-y-4 pt-2">
             <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl shadow-sm">

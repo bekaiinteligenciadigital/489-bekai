@@ -14,6 +14,49 @@ import { BookOpenText, Search, BookA, ArrowRight, Loader2, HelpCircle } from 'lu
 import { Link } from 'react-router-dom'
 import pb from '@/lib/pocketbase/client'
 
+const FALLBACK_CHAPTERS = [
+  {
+    id: 'f1', number: 1, title: 'Introdução ao BekAI e Literacia Digital',
+    content: `<p>O BekAI é uma plataforma de <strong>literacia digital familiar</strong> que ajuda responsáveis a compreenderem e orientarem o impacto das redes sociais no desenvolvimento de crianças e adolescentes.</p>
+    <p>Literacia digital vai além do uso de tecnologia — trata-se da <strong>capacidade crítica de consumir, avaliar e produzir conteúdo digital</strong> de forma consciente e saudável.</p>`,
+    route_reference: '/monitoramento',
+  },
+  {
+    id: 'f2', number: 2, title: 'Como Realizar o Mapeamento de Influência',
+    content: `<p>O Mapeamento de Influência é o primeiro passo do processo BekAI. Você irá:</p>
+    <ol class="list-decimal pl-6 space-y-2 mt-2"><li>Selecionar o perfil do jovem a ser analisado</li><li>Indicar as plataformas de maior uso</li><li>Marcar comportamentos observados (padrões de risco)</li><li>Aguardar o Agente BekAI gerar o perfil de influência digital</li></ol>`,
+    route_reference: '/analise',
+  },
+  {
+    id: 'f3', number: 3, title: 'Entendendo o DQ Score e Níveis de Risco',
+    content: `<p>O <strong>Quociente Digital (DQ)</strong> é uma pontuação de 0 a 100 que mede a qualidade do consumo digital. Quanto maior, mais saudável o perfil.</p>
+    <p>Os <strong>Níveis de Risco</strong> são: <em>Baixo, Moderado, Alto</em> e <em>Crítico</em>. Cada nível determina a urgência da intervenção e o tipo de plano de ação gerado pelo Agente.</p>`,
+    route_reference: '/resultado',
+  },
+  {
+    id: 'f4', number: 4, title: 'Agente Autônomo: Como Funciona',
+    content: `<p>O Agente Autônomo BekAI gera <strong>planos de ação personalizados</strong> baseados no perfil de influência digital. Ele utiliza a técnica de <em>Equivalência Estética</em> para substituir conteúdos nocivos por conteúdos construtivos.</p>
+    <p>Você pode ativar um plano de ação e acompanhar a evolução quantitativa (tempo de tela) e qualitativa (aceitação de conteúdo positivo) do jovem.</p>`,
+    route_reference: '/plano',
+  },
+  {
+    id: 'f5', number: 5, title: 'Configurando Alertas e Notificações',
+    content: `<p>O BekAI suporta alertas via <strong>WhatsApp</strong> e <strong>Telegram</strong>. Configure nas Configurações para receber notificações imediatas quando riscos críticos forem detectados.</p>
+    <p>Para WhatsApp, inclua o código do país no número (ex: +55 11 99999-9999). Para Telegram, inicie o bot oficial BekAI e obtenha seu Chat ID com o comando /start.</p>`,
+    route_reference: '/config',
+  },
+]
+
+const FALLBACK_GLOSSARY = [
+  { id: 'g1', term: 'DQ Score (Quociente Digital)', definition: 'Pontuação de 0 a 100 que representa a qualidade do consumo digital de um jovem. Avalia múltiplas dimensões de risco e saúde digital.' },
+  { id: 'g2', term: 'Vaping de Atenção', definition: 'Padrão de consumo passivo e ininterrupto de vídeos curtos, caracterizado pela absorção acelerada de informações rasas sem filtro crítico, gerando conformismo e letargia.' },
+  { id: 'g3', term: 'Equivalência Estética', definition: 'Técnica do Agente BekAI que consiste em substituir conteúdos nocivos por conteúdos de qualidade visual equivalente, mas com narrativas construtivas e virtuosas.' },
+  { id: 'g4', term: 'BDIC (Base de Dados de Inteligência Clínica)', definition: 'Repositório de criadores, conteúdos e referências científicas curados pela equipe BekAI para apoiar as recomendações do Agente Autônomo.' },
+  { id: 'g5', term: 'Técnica D.C.D.', definition: 'Método de orientação parental: Duvidar da perfeição digital, Criticar as narrativas de ódio e Determinar o próprio caminho offline.' },
+  { id: 'g6', term: 'Niilismo Algorítmico', definition: 'Padrão de consumo de conteúdo que promove a ideia de que nada tem valor ou sentido, frequentemente encontrado em conteúdos "core" e de desabafo nas redes sociais.' },
+  { id: 'g7', term: 'Comparação Social Ascendente', definition: 'Comportamento induzido por algoritmos que exibem padrões de vida irreais, levando à insatisfação crônica e ao sentimento de inadequação.' },
+]
+
 export default function Manual() {
   const [chapters, setChapters] = useState<any[]>([])
   const [glossary, setGlossary] = useState<any[]>([])
@@ -27,10 +70,12 @@ export default function Manual() {
           pb.collection('manual_chapters').getFullList({ sort: 'number' }),
           pb.collection('glossary_terms').getFullList({ sort: 'term' }),
         ])
-        setChapters(chaps)
-        setGlossary(terms)
+        setChapters(chaps.length > 0 ? chaps : FALLBACK_CHAPTERS)
+        setGlossary(terms.length > 0 ? terms : FALLBACK_GLOSSARY)
       } catch (err) {
         console.error('Error fetching manual:', err)
+        setChapters(FALLBACK_CHAPTERS)
+        setGlossary(FALLBACK_GLOSSARY)
       } finally {
         setLoading(false)
       }

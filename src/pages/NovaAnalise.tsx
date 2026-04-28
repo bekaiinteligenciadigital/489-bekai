@@ -15,12 +15,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useToast } from '@/hooks/use-toast'
-import { ChevronRight, CheckCircle2, ShieldCheck, User } from 'lucide-react'
+import { ChevronRight, CheckCircle2, ShieldCheck, User, History, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { MentorCard } from '@/components/MentorCard'
 import { AnaliseColeta } from '@/components/AnaliseColeta'
 import { AnaliseProcessando } from '@/components/AnaliseProcessando'
 import useFamilyStore from '@/stores/useFamilyStore'
 import { cn } from '@/lib/utils'
+import pb from '@/lib/pocketbase/client'
 
 const PLATFORMS = [
   'TikTok',
@@ -42,6 +43,22 @@ const behaviorsList = [
   'Sinais de Desinteresse Escolar / Desconexão',
 ]
 
+type HistoryRecord = {
+  id: string
+  child: string
+  dq_score: number
+  risk_level: string
+  insights_summary: string
+  created: string
+}
+
+const RISK_COLORS: Record<string, string> = {
+  Baixo: 'bg-emerald-100 text-emerald-800',
+  Moderado: 'bg-amber-100 text-amber-800',
+  Alto: 'bg-orange-100 text-orange-800',
+  Crítico: 'bg-rose-100 text-rose-800',
+}
+
 export default function NovaAnalise() {
   const [step, setStep] = useState(1)
   const navigate = useNavigate()
@@ -50,20 +67,25 @@ export default function NovaAnalise() {
   const [selectedChild, setSelectedChild] = useState(childrenProfiles[0]?.id || '')
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
   const [selectedBehaviors, setSelectedBehaviors] = useState<string[]>([])
+  const [history, setHistory] = useState<HistoryRecord[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   useEffect(() => {
-    if (step === 3) {
-      toast({
-        title: 'Motor de Mapeamento Ativado',
-        description: 'Analisando padrões e preparando Agente Autônomo...',
-      })
-      const timer = setTimeout(
-        () => navigate('/resultado', { state: { platforms: selectedPlatforms } }),
-        5000,
-      )
-      return () => clearTimeout(timer)
+    const loadHistory = async () => {
+      setHistoryLoading(true)
+      try {
+        const records = await pb.collection('analysis_records').getList(1, 10, {
+          sort: '-created',
+        })
+        setHistory(records.items as unknown as HistoryRecord[])
+      } catch {
+        // silently fail if collection doesn't exist yet
+      } finally {
+        setHistoryLoading(false)
+      }
     }
-  }, [step, navigate, toast, selectedPlatforms])
+    loadHistory()
+  }, [])
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-10">
@@ -258,6 +280,52 @@ export default function NovaAnalise() {
 
       {step === 2 && <AnaliseColeta setStep={setStep} />}
       {step === 3 && <AnaliseProcessando />}
+
+      {step === 1 && history.length > 0 && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <History className="w-4 h-4" />
+            <h3 className="text-sm font-semibold uppercase tracking-wider">Histórico de Mapeamentos</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {history.map((rec) => {
+              const child = childrenProfiles.find((c) => c.id === rec.child)
+              const dqPrev = history.find((r, i) => history[i - 1]?.id === rec.id)?.dq_score
+              const trend = dqPrev == null ? null : rec.dq_score > dqPrev ? 'up' : rec.dq_score < dqPrev ? 'down' : 'stable'
+              return (
+                <div
+                  key={rec.id}
+                  className="flex items-start gap-3 p-4 rounded-xl border bg-background shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="shrink-0 text-center">
+                    <p className="text-2xl font-bold text-primary">{rec.dq_score ?? '--'}</p>
+                    <p className="text-[10px] text-muted-foreground">DQ</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="font-semibold text-sm truncate">
+                        {child?.name ?? 'Jovem'}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={`text-[10px] px-2 py-0 border-0 ${RISK_COLORS[rec.risk_level] ?? 'bg-muted text-muted-foreground'}`}>
+                          {rec.risk_level}
+                        </Badge>
+                        {trend === 'up' && <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />}
+                        {trend === 'down' && <TrendingDown className="w-3.5 h-3.5 text-rose-600" />}
+                        {trend === 'stable' && <Minus className="w-3.5 h-3.5 text-muted-foreground" />}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{rec.insights_summary}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1.5">
+                      {new Date(rec.created).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
