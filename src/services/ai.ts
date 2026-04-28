@@ -1,14 +1,17 @@
 import pb from '@/lib/pocketbase/client'
 
+type RiskLabel = 'Baixo' | 'Moderado' | 'Alto' | 'Critico' | 'Crítico'
+type PriorityLabel = 'alta' | 'media' | 'média' | 'baixa'
+
 export interface RiskScore {
   dimension: string
   score: number
-  label: 'Baixo' | 'Moderado' | 'Alto' | 'Crítico'
+  label: RiskLabel
   description: string
 }
 
 export interface AnalysisResult {
-  overallRisk: 'Baixo' | 'Moderado' | 'Alto' | 'Crítico'
+  overallRisk: RiskLabel
   overallScore: number
   summary: string
   scores: RiskScore[]
@@ -36,7 +39,7 @@ export interface ActionStep {
   frequency: string
   duration: string
   category: 'parental' | 'digital' | 'offline' | 'professional'
-  priority: 'alta' | 'média' | 'baixa'
+  priority: PriorityLabel
 }
 
 export interface ActionPlanResult {
@@ -47,132 +50,63 @@ export interface ActionPlanResult {
   expectedOutcome: string
 }
 
-// ─── Groq direct client ──────────────────────────────────────────────────────
+function normalizeText(value: unknown) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
 
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const GROQ_MODEL = 'llama-3.3-70b-versatile'
-const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY as string | undefined
+function normalizeRiskLabel(label: unknown): RiskLabel {
+  const value = normalizeText(label)
 
-function extractJson(raw: string, agentName: string): any {
-  try {
-    return JSON.parse(raw)
-  } catch {
-    const match = raw.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error(`Resposta do ${agentName} não contém JSON válido.`)
-    try {
-      return JSON.parse(match[0])
-    } catch {
-      throw new Error(`Resposta do ${agentName} tem JSON malformado.`)
-    }
+  if (value === 'baixo') return 'Baixo'
+  if (value === 'moderado') return 'Moderado'
+  if (value === 'alto') return 'Alto'
+  return 'Critico'
+}
+
+function normalizePriority(priority: unknown): PriorityLabel {
+  const value = normalizeText(priority)
+  if (value === 'alta') return 'alta'
+  if (value === 'baixa') return 'baixa'
+  return 'media'
+}
+
+function normalizeAnalysisResult(result: AnalysisResult): AnalysisResult {
+  return {
+    ...result,
+    overallRisk: normalizeRiskLabel(result.overallRisk),
+    scores: Array.isArray(result.scores)
+      ? result.scores.map((score) => ({
+          ...score,
+          label: normalizeRiskLabel(score.label),
+        }))
+      : [],
   }
 }
 
-async function callGroq(systemPrompt: string, userMessage: string, jsonMode = true): Promise<string> {
-  if (!GROQ_KEY) throw new Error('VITE_GROQ_API_KEY não configurada.')
-  const res = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${GROQ_KEY}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      max_tokens: 2048,
-      temperature: 0.5,
-      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(`Groq API error ${res.status}: ${JSON.stringify(err)}`)
+function normalizeActionPlan(result: ActionPlanResult): ActionPlanResult {
+  return {
+    ...result,
+    steps: Array.isArray(result.steps)
+      ? result.steps.map((step) => ({
+          ...step,
+          priority: normalizePriority(step.priority),
+        }))
+      : [],
   }
-  const data = await res.json()
-  return data?.choices?.[0]?.message?.content ?? ''
 }
 
-async function callGroqChat(
-  systemPrompt: string,
-  messages: { role: 'user' | 'assistant'; content: string }[],
-): Promise<string> {
-  if (!GROQ_KEY) throw new Error('VITE_GROQ_API_KEY não configurada.')
-  const res = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${GROQ_KEY}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      max_tokens: 1024,
-      temperature: 0.7,
-      messages: [{ role: 'system', content: systemPrompt }, ...messages],
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(`Groq API error ${res.status}: ${JSON.stringify(err)}`)
-  }
-  const data = await res.json()
-  return data?.choices?.[0]?.message?.content ?? ''
-}
+function getErrorMessage(error: unknown, fallback: string) {
+  const message =
+    (error as any)?.response?.message ||
+    (error as any)?.data?.message ||
+    (error as any)?.message ||
+    ''
 
-// ─── Prompts ─────────────────────────────────────────────────────────────────
-
-const ANALYSIS_PROMPT = `Você é o Agente de Análise do BekAI, plataforma educativa de literacia midiática e saúde digital infantojuvenil.
-
-Analise os dados de comportamento digital e gere um perfil de risco estruturado.
-
-REGRAS: Não faça diagnósticos médicos. Analise influências digitais e padrões comportamentais observáveis. Tom educativo, preventivo e empático. Responda em português brasileiro.
-
-Retorne APENAS um JSON válido:
-{
-  "overallRisk": "Baixo",
-  "overallScore": 65,
-  "summary": "string com 2-3 frases",
-  "scores": [{"dimension": "string", "score": 70, "label": "Alto", "description": "string"}],
-  "primaryConcern": "string",
-  "algorithmicProfile": "string"
-}
-Labels possíveis: "Baixo", "Moderado", "Alto", "Crítico". Gere entre 4 e 6 dimensões.`
-
-const RESULT_PROMPT = `Você é o Agente de Resultado do BekAI, especializado em traduzir perfis de risco em insights acionáveis para pais.
-
-REGRAS: Tom empático. Foco em soluções. Linguagem acessível. Nunca diagnosticar. Português brasileiro.
-
-Retorne APENAS um JSON válido:
-{
-  "insights": [{"type": "danger", "title": "string", "description": "string"}],
-  "safetyFlags": ["string"],
-  "positiveOpportunities": ["string"],
-  "curatorSuggestion": "string",
-  "clinicalNote": "string"
-}
-Tipos: "danger", "warning", "positive". Gere pelo menos 3 insights variados.`
-
-const ACTION_PLAN_PROMPT = `Você é o Agente de Plano de Ação do BekAI, especializado em criar planos operacionais práticos com base em literacia midiática.
-
-PRINCÍPIOS: Substituição intencional, não bloqueio. Intervenções graduais. Linguagem prática. Português brasileiro.
-
-Retorne APENAS um JSON válido:
-{
-  "planTitle": "string",
-  "planSummary": "string",
-  "steps": [{"title": "string", "description": "string", "frequency": "string", "duration": "string", "category": "parental", "priority": "alta"}],
-  "weeklyGoal": "string",
-  "expectedOutcome": "string"
-}
-Categorias: "parental", "digital", "offline", "professional". Prioridades: "alta", "média", "baixa". Gere 5 a 7 etapas.`
-
-const CHAT_PROMPT = `Você é o Assistente BekAI, especializado em literacia midiática e saúde digital infantojuvenil. Ajude pais a interpretar relatórios, entender influências algorítmicas e encontrar estratégias de substituição intencional. Não oferece diagnósticos médicos. Tom empático, claro e construtivo. Máximo 200 palavras. Português brasileiro.`
-
-// ─── API functions ─────────────────────────────────────────────────────────
-
-async function tryPocketBase<T>(path: string, body: unknown): Promise<T> {
-  return pb.send(path, { method: 'POST', body }) as Promise<T>
+  return String(message).trim() || fallback
 }
 
 export async function generateRiskAnalysis(data: {
@@ -183,40 +117,30 @@ export async function generateRiskAnalysis(data: {
   audioTranscript?: string
   additionalNotes?: string
 }): Promise<AnalysisResult> {
-  if (GROQ_KEY) {
-    const userMsg = `Analise o perfil digital deste jovem e retorne apenas o JSON:
+  try {
+    const response = await pb.send('/backend/v1/ai/analysis', {
+      method: 'POST',
+      body: data,
+    })
 
-Nome: ${data.childName}
-${data.childAge ? `Idade: ${data.childAge} anos` : ''}
-Plataformas: ${data.platforms.join(', ')}
-Comportamentos observados:
-${data.behaviors.map((b) => `- ${b}`).join('\n')}
-${data.audioTranscript ? `\nRelato em áudio: ${data.audioTranscript}` : ''}
-${data.additionalNotes ? `\nObservações: ${data.additionalNotes}` : ''}`
-    const raw = await callGroq(ANALYSIS_PROMPT, userMsg)
-    return extractJson(raw, 'Agente de Análise') as AnalysisResult
+    return normalizeAnalysisResult(response as AnalysisResult)
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Erro ao gerar a analise de risco.'))
   }
-  return tryPocketBase('/backend/v1/ai/analysis', data)
 }
 
 export async function generateResultInsights(
   analysisResult: AnalysisResult,
   childName: string,
 ): Promise<ResultoInsights> {
-  if (GROQ_KEY) {
-    const a = analysisResult
-    const userMsg = `Gere insights para os pais de ${childName}. Retorne apenas o JSON:
-
-Risco Geral: ${a.overallRisk} (score: ${a.overallScore}/100)
-Resumo: ${a.summary}
-Principal Preocupação: ${a.primaryConcern}
-Perfil Algorítmico: ${a.algorithmicProfile}
-Dimensões:
-${(a.scores || []).map((s) => `- ${s.dimension}: ${s.label} (${s.score}/100) - ${s.description}`).join('\n')}`
-    const raw = await callGroq(RESULT_PROMPT, userMsg)
-    return extractJson(raw, 'Agente de Resultado') as ResultoInsights
+  try {
+    return await pb.send('/backend/v1/ai/result', {
+      method: 'POST',
+      body: { analysisResult, childName },
+    })
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Erro ao gerar os insights do agente.'))
   }
-  return tryPocketBase('/backend/v1/ai/result', { analysisResult, childName })
 }
 
 export async function generateActionPlan(
@@ -224,20 +148,16 @@ export async function generateActionPlan(
   childName: string,
   platforms: string[],
 ): Promise<ActionPlanResult> {
-  if (GROQ_KEY) {
-    const a = analysisResult
-    const userMsg = `Crie um plano de ação para os pais de ${childName}. Retorne apenas o JSON:
+  try {
+    const response = await pb.send('/backend/v1/ai/action-plan', {
+      method: 'POST',
+      body: { analysisResult, childName, platforms },
+    })
 
-Risco Geral: ${a.overallRisk} (score: ${a.overallScore}/100)
-Principal Preocupação: ${a.primaryConcern}
-Plataformas: ${platforms.join(', ')}
-Perfil Algorítmico: ${a.algorithmicProfile}
-Dimensões:
-${(a.scores || []).map((s) => `- ${s.dimension}: ${s.label} - ${s.description}`).join('\n')}`
-    const raw = await callGroq(ACTION_PLAN_PROMPT, userMsg)
-    return extractJson(raw, 'Agente de Plano') as ActionPlanResult
+    return normalizeActionPlan(response as ActionPlanResult)
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Erro ao gerar o plano de acao.'))
   }
-  return tryPocketBase('/backend/v1/ai/action-plan', { analysisResult, childName, platforms })
 }
 
 export async function chatWithAssistant(
@@ -248,11 +168,14 @@ export async function chatWithAssistant(
     overallRisk?: string
   },
 ): Promise<string> {
-  if (GROQ_KEY) {
-    const ctx = context || {}
-    const systemWithCtx = `${CHAT_PROMPT}\n\nCONTEXTO DO USUÁRIO:\n- Filho(a): ${ctx.childName || 'Não informado'}\n- Plataformas: ${(ctx.platforms || []).join(', ') || 'Não informado'}\n- Nível de risco: ${ctx.overallRisk || 'Ainda não analisado'}`
-    return callGroqChat(systemWithCtx, messages)
+  try {
+    const response = await pb.send('/backend/v1/ai/chat', {
+      method: 'POST',
+      body: { messages, context },
+    })
+
+    return response.reply
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Erro ao conversar com o assistente.'))
   }
-  const response = await tryPocketBase<{ reply: string }>('/backend/v1/ai/chat', { messages, context })
-  return response.reply
 }

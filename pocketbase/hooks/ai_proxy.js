@@ -103,6 +103,345 @@ Tom: Empatico, claro, construtivo e acolhedor.
 Idioma: Portugues brasileiro.
 Comprimento: respostas concisas com no maximo 200 palavras.`
 
+const NORMALIZED_RISK_LABELS = ['Baixo', 'Moderado', 'Alto', 'Critico']
+
+function clamp(value, min, max) {
+  const num = Number(value)
+  if (Number.isNaN(num)) return min
+  return Math.min(max, Math.max(min, num))
+}
+
+function scoreToRiskLabel(score) {
+  const normalized = clamp(score, 0, 100)
+  if (normalized >= 80) return 'Critico'
+  if (normalized >= 60) return 'Alto'
+  if (normalized >= 35) return 'Moderado'
+  return 'Baixo'
+}
+
+function normalizeRiskLabel(label) {
+  const value = String(label || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  if (value === 'baixo') return 'Baixo'
+  if (value === 'moderado') return 'Moderado'
+  if (value === 'alto') return 'Alto'
+  if (value === 'critico') return 'Critico'
+  return null
+}
+
+function normalizeAnalysisResult(result) {
+  const scores = Array.isArray(result && result.scores) ? result.scores : []
+  const normalizedScores = scores.map((score, index) => {
+    const numericScore = clamp(score && score.score, 0, 100)
+    return {
+      dimension:
+        (score && score.dimension) || 'Dimensao ' + String(index + 1),
+      score: numericScore,
+      label: normalizeRiskLabel(score && score.label) || scoreToRiskLabel(numericScore),
+      description: (score && score.description) || 'Sem descricao disponivel.',
+    }
+  })
+
+  const overallScore = clamp(result && result.overallScore, 0, 100)
+
+  return {
+    overallRisk: normalizeRiskLabel(result && result.overallRisk) || scoreToRiskLabel(overallScore),
+    overallScore,
+    summary: (result && result.summary) || 'Analise concluida com base nos sinais informados.',
+    scores: normalizedScores,
+    primaryConcern: (result && result.primaryConcern) || 'Nenhum foco principal informado.',
+    algorithmicProfile:
+      (result && result.algorithmicProfile) ||
+      'Perfil em consolidacao a partir dos padroes digitais observados.',
+  }
+}
+
+function normalizeResultInsights(result) {
+  const insights = Array.isArray(result && result.insights) ? result.insights : []
+  const normalizedInsights = insights
+    .filter((item) => item && item.title && item.description)
+    .map((item) => ({
+      type: ['danger', 'warning', 'positive'].includes(item.type) ? item.type : 'warning',
+      title: String(item.title),
+      description: String(item.description),
+    }))
+
+  return {
+    insights: normalizedInsights,
+    safetyFlags: Array.isArray(result && result.safetyFlags) ? result.safetyFlags : [],
+    positiveOpportunities: Array.isArray(result && result.positiveOpportunities)
+      ? result.positiveOpportunities
+      : [],
+    curatorSuggestion:
+      (result && result.curatorSuggestion) ||
+      'Introduza conteudos educativos e pausas digitais em momentos previsiveis da rotina.',
+    clinicalNote:
+      (result && result.clinicalNote) ||
+      'Persistindo sinais de sofrimento, procure avaliacao com profissional de saude.',
+  }
+}
+
+function normalizeActionPlan(result) {
+  const steps = Array.isArray(result && result.steps) ? result.steps : []
+  return {
+    planTitle: (result && result.planTitle) || 'Plano inicial de reorganizacao digital',
+    planSummary:
+      (result && result.planSummary) ||
+      'Plano estruturado para reduzir friccoes digitais e fortalecer protecoes familiares.',
+    steps: steps
+      .filter((step) => step && step.title && step.description)
+      .map((step) => ({
+        title: String(step.title),
+        description: String(step.description),
+        frequency: String(step.frequency || 'Diariamente'),
+        duration: String(step.duration || '2 semanas'),
+        category: ['parental', 'digital', 'offline', 'professional'].includes(step.category)
+          ? step.category
+          : 'parental',
+        priority: ['alta', 'media', 'baixa'].includes(step.priority) ? step.priority : 'media',
+      })),
+    weeklyGoal:
+      (result && result.weeklyGoal) ||
+      'Criar previsibilidade no uso de telas e reduzir exposicao impulsiva.',
+    expectedOutcome:
+      (result && result.expectedOutcome) ||
+      'Melhor equilibrio entre consumo digital, descanso e convivio familiar.',
+  }
+}
+
+function heuristicSignals(payload) {
+  const platforms = Array.isArray(payload && payload.platforms) ? payload.platforms : []
+  const behaviors = Array.isArray(payload && payload.behaviors) ? payload.behaviors : []
+  const joined = platforms.concat(behaviors).join(' ').toLowerCase()
+
+  let stimulation = 28
+  let social = 20
+  let sleep = 18
+  let protection = 32
+
+  if (/tiktok|reels|shorts|feed/.test(joined)) stimulation += 24
+  if (/youtube|discord|whatsapp|instagram/.test(joined)) social += 18
+  if (/madrugada|noite|sono|late|tarde da noite/.test(joined)) sleep += 30
+  if (/isolamento|ansiedade|irrita|agress|impuls|compuls/.test(joined)) {
+    stimulation += 12
+    social += 10
+  }
+  if (/familia|rotina|esporte|leitura|pausa|curadoria|supervis/.test(joined)) {
+    protection += 18
+  }
+
+  stimulation = clamp(stimulation, 0, 100)
+  social = clamp(social, 0, 100)
+  sleep = clamp(sleep, 0, 100)
+  protection = clamp(protection, 0, 100)
+
+  const overallScore = clamp(Math.round((stimulation + social + sleep + (100 - protection)) / 4), 0, 100)
+
+  return {
+    overallScore,
+    scores: [
+      {
+        dimension: 'Hiperestimulacao Algoritmica',
+        score: stimulation,
+        label: scoreToRiskLabel(stimulation),
+        description: 'Avalia intensidade de estimulos rapidos, scroll e consumo repetitivo.',
+      },
+      {
+        dimension: 'Pressao Social Digital',
+        score: social,
+        label: scoreToRiskLabel(social),
+        description: 'Considera gatilhos de comparacao, resposta social e permanencia em grupos.',
+      },
+      {
+        dimension: 'Impacto no Ritmo e Sono',
+        score: sleep,
+        label: scoreToRiskLabel(sleep),
+        description: 'Observa risco de uso em horarios de descanso e perda de recuperacao emocional.',
+      },
+      {
+        dimension: 'Fatores de Protecao Familiar',
+        score: 100 - protection,
+        label: scoreToRiskLabel(100 - protection),
+        description: 'Mede ausencia de rotina, supervisao e repertorio offline protetivo.',
+      },
+    ],
+  }
+}
+
+function buildFallbackAnalysis(body) {
+  const signal = heuristicSignals(body)
+  const overallRisk = scoreToRiskLabel(signal.overallScore)
+  const childName = body && body.childName ? body.childName : 'jovem'
+
+  return normalizeAnalysisResult({
+    overallRisk,
+    overallScore: signal.overallScore,
+    summary:
+      'Analise local concluida para ' +
+      childName +
+      '. Foram identificados sinais de exposicao digital que pedem ajuste gradual de rotina, curadoria e acompanhamento familiar.',
+    scores: signal.scores,
+    primaryConcern:
+      overallRisk === 'Baixo'
+        ? 'Manter constancia de supervisao e rotinas digitais saudaveis.'
+        : 'Reduzir ciclos de consumo impulsivo e reorganizar horarios, contexto e repertorio digital.',
+    algorithmicProfile:
+      'Perfil com reforco de recomendacoes automatizadas influenciado pelas plataformas informadas e pelos comportamentos relatados.',
+  })
+}
+
+function buildFallbackResultInsights(analysis, childName) {
+  const normalized = normalizeAnalysisResult(analysis)
+  const highScores = normalized.scores.filter((item) => item.score >= 60)
+  const topConcern = highScores.length ? highScores[0].dimension : 'Equilibrio geral de rotina'
+
+  return normalizeResultInsights({
+    insights: [
+      {
+        type: normalized.overallScore >= 75 ? 'danger' : 'warning',
+        title: 'Sinal prioritario: ' + topConcern,
+        description:
+          'Os dados sugerem necessidade de intervencao organizada para ' +
+          childName +
+          ', com foco em previsibilidade e reducao de gatilhos digitais.',
+      },
+      {
+        type: 'warning',
+        title: 'Ajuste ambiental pode gerar ganho rapido',
+        description:
+          'Mudancas em horario, contexto de uso e substituicao de conteudo costumam reduzir atrito sem depender apenas de bloqueio.',
+      },
+      {
+        type: 'positive',
+        title: 'Ha espaco para reequilibrio progressivo',
+        description:
+          'Com supervisao consistente e repertorio alternativo, o algoritmo tende a responder melhor ao novo padrao de interacao.',
+      },
+    ],
+    safetyFlags:
+      normalized.overallScore >= 80
+        ? ['Uso com alta intensidade e potencial de escalada emocional.']
+        : ['Monitorar sinais de irritabilidade, privacao de sono e isolamento.'],
+    positiveOpportunities: [
+      'Introduzir consumo guiado de conteudos educativos e interesses do jovem.',
+      'Criar janelas sem tela em transicoes importantes da rotina.',
+    ],
+    curatorSuggestion:
+      'Favoreca conteudos de aprendizagem, esporte, ciencia ou criadores de rotina saudavel alinhados ao interesse do jovem.',
+    clinicalNote:
+      'Se surgirem prejuizos persistentes de humor, sono ou convivio, vale buscar avaliacao profissional complementar.',
+  })
+}
+
+function buildFallbackActionPlan(analysis, childName, platforms) {
+  const normalized = normalizeAnalysisResult(analysis)
+  const platformLabel = Array.isArray(platforms) && platforms.length ? platforms.join(', ') : 'as plataformas em uso'
+
+  return normalizeActionPlan({
+    planTitle: 'Plano inicial para ' + childName,
+    planSummary:
+      'Plano pratico para reorganizar a rotina digital e reduzir sobrecarga ligada a ' + platformLabel + '.',
+    steps: [
+      {
+        title: 'Definir janela de uso previsivel',
+        description: 'Estabeleca horarios claros para acesso e momentos sem tela nas transicoes do dia.',
+        frequency: 'Diariamente',
+        duration: '7 dias',
+        category: 'parental',
+        priority: 'alta',
+      },
+      {
+        title: 'Trocar estimulos de alta intensidade',
+        description: 'Substitua parte do feed rapido por conteudos mais longos, educativos ou ligados a interesses positivos.',
+        frequency: '5x por semana',
+        duration: '2 semanas',
+        category: 'digital',
+        priority: 'alta',
+      },
+      {
+        title: 'Criar rotina offline de protecao',
+        description: 'Inclua atividade fisica, leitura, conversa ou hobby em horario que antes era dominado por tela.',
+        frequency: 'Diariamente',
+        duration: '2 semanas',
+        category: 'offline',
+        priority: 'media',
+      },
+      {
+        title: 'Revisar sinais de progresso em familia',
+        description: 'Conversem sobre irritabilidade, sono, foco e convivio para ajustar a estrategia com base no que mudou.',
+        frequency: 'Semanalmente',
+        duration: '4 semanas',
+        category: 'parental',
+        priority: normalized.overallScore >= 70 ? 'alta' : 'media',
+      },
+      {
+        title: 'Escalar para apoio especializado se necessario',
+        description: 'Se os sinais persistirem ou se intensificarem, leve os registros para um profissional de saude ou educacao.',
+        frequency: 'Conforme necessidade',
+        duration: '30 dias',
+        category: 'professional',
+        priority: normalized.overallScore >= 80 ? 'alta' : 'baixa',
+      },
+    ],
+    weeklyGoal: 'Reduzir o uso impulsivo e aumentar momentos de consumo mais intencional.',
+    expectedOutcome:
+      'Melhora de previsibilidade na rotina, menor friccao emocional e maior capacidade de curadoria familiar.',
+  })
+}
+
+function buildFallbackChat(messages, context) {
+  const conversation = Array.isArray(messages) ? messages : []
+  const latest = conversation.length ? conversation[conversation.length - 1].content || '' : ''
+  const lower = String(latest).toLowerCase()
+  const childName = context && context.childName ? context.childName : 'o jovem'
+  const overallRisk = context && context.overallRisk ? context.overallRisk : 'nao informado'
+  const platforms =
+    context && Array.isArray(context.platforms) && context.platforms.length
+      ? context.platforms.join(', ')
+      : 'plataformas nao informadas'
+
+  if (lower.includes('score') || lower.includes('risco')) {
+    return (
+      'O score resume intensidade de exposicao, contexto de uso e fatores de protecao. ' +
+      'Hoje o risco de ' +
+      childName +
+      ' esta em ' +
+      overallRisk +
+      '. O mais importante nao e o numero isolado, e sim quais dimensoes puxaram esse resultado e o que pode ser ajustado na rotina.'
+    )
+  }
+
+  if (lower.includes('plano') || lower.includes('acao')) {
+    return (
+      'O plano de acao deve priorizar tres frentes: previsibilidade de horario, substituicao intencional de conteudo e reforco de rotina offline. ' +
+      'Para ' +
+      childName +
+      ', vale observar especialmente o uso em ' +
+      platforms +
+      ' e revisar a estrategia semanalmente.'
+    )
+  }
+
+  if (lower.includes('algoritmo') || lower.includes('feed') || lower.includes('curadoria')) {
+    return (
+      'Quando a familia muda padrao de interacao, o algoritmo costuma reagir. ' +
+      'A melhor estrategia e reduzir cliques impulsivos e aumentar sinais claros de interesse em conteudos mais saudaveis, consistentes com o objetivo educativo.'
+    )
+  }
+
+  return (
+    'Posso te ajudar a interpretar risco, rotina, curadoria e proximo passo pratico. ' +
+    'No caso de ' +
+    childName +
+    ', eu comecaria revendo horarios de uso, tipo de conteudo consumido e fatores de protecao familiar. ' +
+    'Se quiser, me pergunte sobre score, plano de acao ou como rebalancear o feed.'
+  )
+}
+
 function extractJson(raw, agentName) {
   try {
     return JSON.parse(raw)
@@ -122,9 +461,7 @@ function extractJson(raw, agentName) {
 
 function postToGroq(body) {
   if (!$secrets.has('GROQ_API_KEY')) {
-    throw new BadRequestError(
-      'A IA ainda nao foi configurada no servidor. Defina o segredo GROQ_API_KEY no PocketBase.',
-    )
+    throw new Error('GROQ_API_KEY_MISSING')
   }
 
   const response = $http.send({
@@ -140,9 +477,7 @@ function postToGroq(body) {
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
     const details = response.raw || response.body || response.json || {}
-    throw new BadRequestError(
-      'Falha ao comunicar com o provedor de IA. ' + JSON.stringify(details),
-    )
+    throw new Error('GROQ_REQUEST_FAILED: ' + JSON.stringify(details))
   }
 
   const responseJson = response.json || {}
@@ -185,6 +520,15 @@ function callGroqWithHistory(systemPrompt, messages, opts) {
   return postToGroq(body)
 }
 
+function withAgentFallback(runPrimary, runFallback) {
+  try {
+    return runPrimary()
+  } catch (err) {
+    console.log('ai_proxy fallback activated:', err && err.message ? err.message : err)
+    return runFallback()
+  }
+}
+
 routerAdd(
   'POST',
   '/backend/v1/ai/{agent}',
@@ -207,13 +551,21 @@ ${body.behaviors.map((item) => `- ${item}`).join('\n')}
 ${body.audioTranscript ? `\nRelato em audio: ${body.audioTranscript}` : ''}
 ${body.additionalNotes ? `\nObservacoes: ${body.additionalNotes}` : ''}`
 
-      const raw = callGroq(ANALYSIS_SYSTEM_PROMPT, userMessage, {
-        jsonMode: true,
-        temperature: 0.4,
-        maxTokens: 2048,
-      })
+      return e.json(
+        200,
+        withAgentFallback(
+          () => {
+            const raw = callGroq(ANALYSIS_SYSTEM_PROMPT, userMessage, {
+              jsonMode: true,
+              temperature: 0.4,
+              maxTokens: 2048,
+            })
 
-      return e.json(200, extractJson(raw, 'Agente de Analise'))
+            return normalizeAnalysisResult(extractJson(raw, 'Agente de Analise'))
+          },
+          () => buildFallbackAnalysis(body),
+        ),
+      )
     }
 
     if (agent === 'result') {
@@ -231,13 +583,21 @@ Perfil Algoritmico: ${analysis.algorithmicProfile}
 Dimensoes:
 ${(analysis.scores || []).map((item) => `- ${item.dimension}: ${item.label} (${item.score}/100) - ${item.description}`).join('\n')}`
 
-      const raw = callGroq(RESULT_SYSTEM_PROMPT, userMessage, {
-        jsonMode: true,
-        temperature: 0.5,
-        maxTokens: 2048,
-      })
+      return e.json(
+        200,
+        withAgentFallback(
+          () => {
+            const raw = callGroq(RESULT_SYSTEM_PROMPT, userMessage, {
+              jsonMode: true,
+              temperature: 0.5,
+              maxTokens: 2048,
+            })
 
-      return e.json(200, extractJson(raw, 'Agente de Resultado'))
+            return normalizeResultInsights(extractJson(raw, 'Agente de Resultado'))
+          },
+          () => buildFallbackResultInsights(analysis, body.childName),
+        ),
+      )
     }
 
     if (agent === 'action-plan') {
@@ -255,13 +615,21 @@ Perfil Algoritmico: ${analysis.algorithmicProfile}
 Dimensoes:
 ${(analysis.scores || []).map((item) => `- ${item.dimension}: ${item.label} - ${item.description}`).join('\n')}`
 
-      const raw = callGroq(ACTION_PLAN_SYSTEM_PROMPT, userMessage, {
-        jsonMode: true,
-        temperature: 0.5,
-        maxTokens: 2048,
-      })
+      return e.json(
+        200,
+        withAgentFallback(
+          () => {
+            const raw = callGroq(ACTION_PLAN_SYSTEM_PROMPT, userMessage, {
+              jsonMode: true,
+              temperature: 0.5,
+              maxTokens: 2048,
+            })
 
-      return e.json(200, extractJson(raw, 'Agente de Plano de Acao'))
+            return normalizeActionPlan(extractJson(raw, 'Agente de Plano de Acao'))
+          },
+          () => buildFallbackActionPlan(analysis, body.childName, body.platforms),
+        ),
+      )
     }
 
     if (agent === 'chat') {
@@ -275,15 +643,22 @@ ${(analysis.scores || []).map((item) => `- ${item.dimension}: ${item.label} - ${
 - Plataformas monitoradas: ${(context.platforms || []).join(', ') || 'Nao informado'}
 - Nivel de risco atual: ${context.overallRisk || 'Ainda nao analisado'}`
 
-      const reply = callGroqWithHistory(CHAT_SYSTEM_PROMPT + contextBlock, body.messages, {
-        temperature: 0.7,
-        maxTokens: 1024,
-      })
+      return e.json(
+        200,
+        withAgentFallback(
+          () => {
+            const reply = callGroqWithHistory(CHAT_SYSTEM_PROMPT + contextBlock, body.messages, {
+              temperature: 0.7,
+              maxTokens: 1024,
+            })
 
-      return e.json(200, { reply })
+            return { reply }
+          },
+          () => ({ reply: buildFallbackChat(body.messages, context) }),
+        ),
+      )
     }
 
     throw new NotFoundError('Agente de IA nao encontrado.')
   },
-  $apis.requireAuth(),
 )
