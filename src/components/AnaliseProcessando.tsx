@@ -7,6 +7,19 @@ import { generateRiskAnalysis } from '@/services/ai'
 import useFamilyStore from '@/stores/useFamilyStore'
 import pb from '@/lib/pocketbase/client'
 
+function toPocketBaseRiskLevel(label: string) {
+  const normalized = String(label || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  if (normalized === 'baixo') return 'Low'
+  if (normalized === 'moderado') return 'Medium'
+  if (normalized === 'alto') return 'High'
+  return 'Critical'
+}
+
 const STAGES = [
   'Mapeando plataformas e padrões comportamentais...',
   'Calculando influência algorítmica...',
@@ -62,7 +75,7 @@ export function AnaliseProcessando() {
           await pb.collection('analysis_records').create({
             child: pendingAnalysis.childId,
             dq_score: result.overallScore,
-            risk_level: result.overallRisk,
+            risk_level: toPocketBaseRiskLevel(result.overallRisk),
             insights_summary: result.summary,
             behavior_patterns: {
               platforms: pendingAnalysis.platforms,

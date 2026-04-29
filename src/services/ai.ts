@@ -113,6 +113,14 @@ function scoreToRiskLabel(score: number): RiskLabel {
   return 'Baixo'
 }
 
+function hasMeaningfulInsights(result: unknown) {
+  return Array.isArray((result as any)?.insights) && (result as any).insights.length > 0
+}
+
+function hasMeaningfulPlan(result: unknown) {
+  return Array.isArray((result as any)?.steps) && (result as any).steps.length > 0
+}
+
 function shouldUseFallback(error: unknown) {
   const status = Number((error as any)?.status || (error as any)?.response?.status || 0)
   const message = normalizeText(getErrorMessage(error, ''))
@@ -121,10 +129,18 @@ function shouldUseFallback(error: unknown) {
     status === 0 ||
     status === 404 ||
     status === 500 ||
+    status === 400 ||
+    status === 401 ||
+    status === 403 ||
+    status >= 502 ||
     message.includes('failed to fetch') ||
     message.includes('request resource was not found') ||
     message.includes('resource wasn\'t found') ||
     message.includes('connection refused') ||
+    message.includes('something went wrong') ||
+    message.includes('bad request') ||
+    message.includes('json malformado') ||
+    message.includes('nao contem json valido') ||
     message.includes('grok_api_key_missing') ||
     message.includes('groq_api_key_missing') ||
     message.includes('groq_request_failed')
@@ -406,15 +422,19 @@ export async function generateResultInsights(
   childName: string,
 ): Promise<ResultoInsights> {
   try {
-    return await pb.send('/backend/v1/ai/result', {
+    const response = await pb.send('/backend/v1/ai/result', {
       method: 'POST',
       body: { analysisResult, childName },
     })
-  } catch (error) {
-    if (shouldUseFallback(error)) {
+
+    const normalized = response as ResultoInsights
+    if (!hasMeaningfulInsights(normalized)) {
       return buildLocalInsights(analysisResult, childName)
     }
-    throw new Error(getErrorMessage(error, 'Erro ao gerar os insights do agente.'))
+
+    return normalized
+  } catch (error) {
+    return buildLocalInsights(analysisResult, childName)
   }
 }
 
@@ -429,12 +449,14 @@ export async function generateActionPlan(
       body: { analysisResult, childName, platforms },
     })
 
-    return normalizeActionPlan(response as ActionPlanResult)
-  } catch (error) {
-    if (shouldUseFallback(error)) {
+    const normalized = normalizeActionPlan(response as ActionPlanResult)
+    if (!hasMeaningfulPlan(normalized)) {
       return buildLocalActionPlan(analysisResult, childName, platforms)
     }
-    throw new Error(getErrorMessage(error, 'Erro ao gerar o plano de acao.'))
+
+    return normalized
+  } catch (error) {
+    return buildLocalActionPlan(analysisResult, childName, platforms)
   }
 }
 
@@ -452,11 +474,12 @@ export async function chatWithAssistant(
       body: { messages, context },
     })
 
-    return response.reply
-  } catch (error) {
-    if (shouldUseFallback(error)) {
+    if (!response || typeof response.reply !== 'string' || !response.reply.trim()) {
       return buildLocalChatReply(messages, context)
     }
-    throw new Error(getErrorMessage(error, 'Erro ao conversar com o assistente.'))
+
+    return response.reply
+  } catch (error) {
+    return buildLocalChatReply(messages, context)
   }
 }
