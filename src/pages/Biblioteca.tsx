@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
 import { ScientificLibrary } from '@/components/ScientificLibrary'
+import { CounterbalanceTopicsManager } from '@/components/CounterbalanceTopicsManager'
 import { TermTooltip } from '@/components/ui/glossary-tooltip'
 import { ResultadoCriadores } from '@/components/ResultadoCriadores'
 import { useAuth } from '@/hooks/use-auth'
@@ -117,7 +118,7 @@ export default function Biblioteca() {
 
       <Tabs defaultValue="creators" className="w-full">
         <TabsList
-          className={`grid w-full grid-cols-1 sm:grid-cols-${user?.role === 'professional' ? '3' : '2'} mb-6`}
+          className={`grid w-full grid-cols-1 sm:grid-cols-${user?.role === 'professional' ? '4' : '2'} mb-6`}
         >
           <TabsTrigger value="creators" className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4" /> Criadores
@@ -125,6 +126,11 @@ export default function Biblioteca() {
           <TabsTrigger value="bdic" className="flex items-center gap-2">
             <BookText className="w-4 h-4" /> Biblioteca Científica
           </TabsTrigger>
+          {user?.role === 'professional' && (
+            <TabsTrigger value="counterbalance" className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> Contraponto IA
+            </TabsTrigger>
+          )}
           {user?.role === 'professional' && (
             <TabsTrigger
               value="professional"
@@ -255,6 +261,21 @@ export default function Biblioteca() {
         <TabsContent value="bdic">
           <ScientificLibrary globalSearch={globalSearch} onSearchChange={setGlobalSearch} />
         </TabsContent>
+
+        {user?.role === 'professional' && (
+          <TabsContent value="counterbalance" className="animate-fade-in space-y-6">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6">
+              <h3 className="text-2xl font-serif font-bold text-primary">
+                Motor de Contraponto Algorítmico
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                Defina os temas nocivos priorizados pelo cliente, as palavras-chave de detecção e
+                os termos de contraponto usados pelos agentes para recomendar conteúdos benéficos.
+              </p>
+            </div>
+            <CounterbalanceTopicsManager />
+          </TabsContent>
+        )}
 
         {user?.role === 'professional' && (
           <TabsContent value="professional" className="animate-fade-in">

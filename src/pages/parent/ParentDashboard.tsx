@@ -27,6 +27,7 @@ import { AnaliseProcessando } from '@/components/AnaliseProcessando'
 import { ConsentModal } from '@/components/parent/ConsentModal'
 import useFamilyStore from '@/stores/useFamilyStore'
 import { SocialConnectionsPanel } from '@/components/parent/SocialConnectionsPanel'
+import { CounterbalancePanel } from '@/components/parent/CounterbalancePanel'
 import {
   SocialConnection,
   SyncJob,
@@ -427,6 +428,9 @@ export default function ParentDashboard() {
                 syncing={syncing}
                 busyConnectionId={busyConnectionId}
               />
+              {activeChild && (
+                <CounterbalancePanel childId={activeChild.id} childName={activeChild.name} />
+              )}
               {activeChild && <BehavioralStratification events={events} />}
               <DigitalInfluenceMap events={events} />
               <div id="tour-scripts">
