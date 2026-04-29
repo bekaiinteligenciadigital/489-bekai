@@ -1,12 +1,30 @@
 onRecordAfterCreateSuccess((e) => {
   const record = e.record
-  const riskLevel = record.get('risk_level')
+  const riskLevel = String(record.get('risk_level') || '')
+  const normalizedRisk = riskLevel.toLowerCase()
 
-  if (riskLevel === 'Critical' || riskLevel === 'High') {
+  if (normalizedRisk === 'critical' || normalizedRisk === 'high') {
     const childId = record.get('child')
     try {
       const child = $app.findRecordById('children', childId)
       const parentUser = $app.findRecordById('Nascimento', child.get('parent'))
+
+      try {
+        const notifCollection = $app.findCollectionByNameOrId('notifications')
+        const notif = new Record(notifCollection)
+        notif.set('user', parentUser.id)
+        notif.set('title', 'Alerta BekAI de risco elevado')
+        notif.set(
+          'message',
+          `Risco ${riskLevel} detectado para ${child.get('name')}. Revise imediatamente o painel clínico e as intervenções sugeridas.`,
+        )
+        notif.set('link', '/dashboard/reports')
+        notif.set('is_read', false)
+        notif.set('priority', normalizedRisk === 'critical' ? 'urgent' : 'warning')
+        $app.save(notif)
+      } catch (notifErr) {
+        console.log('on_analysis_alert: failed to create internal notification', notifErr)
+      }
 
       const messageText = `🚨 ALERTA BEKAI: Risco nível ${riskLevel} detectado no Suporte à Decisão Clínica de ${child.get('name')}. Acesse imediatamente seu painel para intervir e ver os detalhes.\n\nLink: https://guardiao-digital-familiar-8c178.goskip.app/dashboard/reports`
 
@@ -18,7 +36,7 @@ onRecordAfterCreateSuccess((e) => {
         if (sid && token && fromNum) {
           let toNum = parentUser.get('phone').replace(/\D/g, '')
           if (!toNum.startsWith('+')) toNum = '+' + toNum
-          $http.send({
+          const response = $http.send({
             url: `https://${sid}:${token}@api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -30,7 +48,23 @@ onRecordAfterCreateSuccess((e) => {
               '&Body=' +
               encodeURIComponent(messageText),
           })
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            console.log(
+              'on_analysis_alert: twilio whatsapp failed',
+              response.statusCode,
+              response.raw,
+            )
+          } else {
+            console.log('on_analysis_alert: whatsapp sent to', toNum)
+          }
+        } else {
+          console.log('on_analysis_alert: twilio secrets missing')
         }
+      } else {
+        console.log(
+          'on_analysis_alert: whatsapp disabled or phone missing for parent',
+          parentUser.id,
+        )
       }
 
       // Telegram Notification
