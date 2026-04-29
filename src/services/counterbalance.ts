@@ -26,8 +26,17 @@ export type CounterIntervention = {
     urgency?: string
     triggerText?: string
     platform?: string
+    matchedKeywords?: string[]
     counterNarrative?: string
+    guardianSummary?: string
+    algorithmGoal?: string
+    deliveryMessage?: string
     recommendedActions?: string[]
+    reviewNotes?: string
+    reviewedBy?: string
+    reviewedAt?: string
+    deliveredBy?: string
+    deliveredAt?: string
     contentSuggestions?: Array<{
       platform: string
       title: string
@@ -38,6 +47,14 @@ export type CounterIntervention = {
   }
   created: string
 }
+
+export type CounterInterventionStatus =
+  | 'suggested'
+  | 'reviewed'
+  | 'delivered'
+  | 'dismissed'
+
+export type CounterDeliveryChannel = 'dashboard' | 'whatsapp' | 'discord' | 'manual_review'
 
 export const getHarmfulTopics = async (): Promise<HarmfulTopic[]> => {
   return pb.collection('harmful_topics').getFullList({
@@ -96,6 +113,28 @@ export const runChildCounterbalance = async (childId: string) => {
       sourceEventId: string
       recommendation: CounterIntervention['recommendation_json']
     }>
+  }>
+}
+
+export const updateCounterInterventionStatus = async (
+  interventionId: string,
+  payload: {
+    status: CounterInterventionStatus
+    deliveryChannel?: CounterDeliveryChannel
+    note?: string
+    customMessage?: string
+  },
+) => {
+  return pb.send(`/backend/v1/counter-interventions/${interventionId}/status`, {
+    method: 'POST',
+    body: payload,
+  }) as Promise<{
+    success: boolean
+    interventionId: string
+    status: CounterInterventionStatus
+    deliveryChannel: CounterDeliveryChannel
+    whatsappSent?: boolean
+    recommendation?: CounterIntervention['recommendation_json']
   }>
 }
 
