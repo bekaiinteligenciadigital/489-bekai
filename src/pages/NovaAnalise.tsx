@@ -79,7 +79,7 @@ export default function NovaAnalise() {
   const [step, setStep] = useState(1)
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { childrenProfiles, setPendingAnalysis } = useFamilyStore()
+  const { childrenProfiles, pendingAnalysis, setPendingAnalysis } = useFamilyStore()
   const [selectedChild, setSelectedChild] = useState(childrenProfiles[0]?.id || '')
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
   const [selectedBehaviors, setSelectedBehaviors] = useState<string[]>([])
@@ -99,6 +99,26 @@ export default function NovaAnalise() {
       console.warn('Failed to restore analysis draft', err)
     }
   }, [])
+
+  useEffect(() => {
+    if (!selectedChild || selectedPlatforms.length === 0) return
+    if (pendingAnalysis?.childId === selectedChild) return
+
+    if (step >= 2) {
+      setPendingAnalysis({
+        childId: selectedChild,
+        platforms: selectedPlatforms,
+        behaviors: selectedBehaviors,
+      })
+    }
+  }, [
+    pendingAnalysis?.childId,
+    selectedBehaviors,
+    selectedChild,
+    selectedPlatforms,
+    setPendingAnalysis,
+    step,
+  ])
 
   useEffect(() => {
     window.localStorage.setItem(
