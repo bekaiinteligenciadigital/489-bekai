@@ -11,7 +11,7 @@ onRecordAfterCreateSuccess((e) => {
     const professionals = $app.findRecordsByFilter(
       'Nascimento',
       "role = 'professional'",
-      '-created',
+      '',
       1000,
       0,
     )
