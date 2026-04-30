@@ -32,6 +32,8 @@ export default function Configuracoes() {
   const [telegramId, setTelegramId] = useState('')
   const [recentReports, setRecentReports] = useState<any[]>([])
   const [moduleProgress, setModuleProgress] = useState<ModuleProgressRecord[]>([])
+  const [testingWhatsapp, setTestingWhatsapp] = useState(false)
+  const [whatsappDiagnostics, setWhatsappDiagnostics] = useState<any | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -71,6 +73,22 @@ export default function Configuracoes() {
     }
   }, [user])
 
+  useEffect(() => {
+    const loadWhatsappDiagnostics = async () => {
+      if (!pb.authStore.record?.id) return
+      try {
+        const diagnostics = await pb.send('/backend/v1/notifications/whatsapp/diagnostics', {
+          method: 'GET',
+        })
+        setWhatsappDiagnostics(diagnostics)
+      } catch (err) {
+        console.warn('Failed to load whatsapp diagnostics', err)
+      }
+    }
+
+    loadWhatsappDiagnostics()
+  }, [user])
+
   const handleSave = async () => {
     try {
       if (whatsappEnabled && phone && !phone.startsWith('+')) {
@@ -107,12 +125,63 @@ export default function Configuracoes() {
         title: 'Configurações Atualizadas',
         description: 'Suas preferências foram salvas com sucesso.',
       })
+
+      try {
+        const diagnostics = await pb.send('/backend/v1/notifications/whatsapp/diagnostics', {
+          method: 'GET',
+        })
+        setWhatsappDiagnostics(diagnostics)
+      } catch (err) {
+        console.warn('Failed to refresh whatsapp diagnostics', err)
+      }
     } catch (e: any) {
       toast({
         title: 'Erro ao salvar',
         description: e.message || 'Houve um problema ao salvar as configurações.',
         variant: 'destructive',
       })
+    }
+  }
+
+  const handleTestWhatsapp = async () => {
+    setTestingWhatsapp(true)
+    try {
+      const response = await pb.send('/backend/v1/notifications/whatsapp/test', {
+        method: 'POST',
+      })
+
+      toast({
+        title: 'Teste de WhatsApp enviado',
+        description:
+          response?.hint ||
+          'Se você não recebeu a mensagem, revise o sandbox da Twilio e os logs do backend.',
+      })
+
+      setWhatsappDiagnostics((prev: any) => ({
+        ...(prev || {}),
+        lastTest: response,
+        lastTestError: null,
+      }))
+    } catch (e: any) {
+      const message =
+        e?.response?.data?.providerResponse ||
+        e?.response?.message ||
+        e?.message ||
+        'Não foi possível enviar a mensagem de teste.'
+
+      toast({
+        title: 'Falha no teste de WhatsApp',
+        description: message,
+        variant: 'destructive',
+      })
+
+      setWhatsappDiagnostics((prev: any) => ({
+        ...(prev || {}),
+        lastTest: null,
+        lastTestError: message,
+      }))
+    } finally {
+      setTestingWhatsapp(false)
     }
   }
 
@@ -293,7 +362,45 @@ export default function Configuracoes() {
                 <Button onClick={handleSave} className="gap-2 shadow-sm">
                   <Save className="w-4 h-4" /> Salvar Preferências
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTestWhatsapp}
+                  disabled={!whatsappEnabled || testingWhatsapp}
+                  className="gap-2 shadow-sm"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  {testingWhatsapp ? 'Testando WhatsApp...' : 'Testar WhatsApp'}
+                </Button>
               </div>
+
+              {whatsappEnabled && (
+                <div className="rounded-xl border bg-background p-4 text-sm space-y-2">
+                  <p className="font-semibold text-foreground">Diagnóstico do canal WhatsApp</p>
+                  <p className="text-muted-foreground">
+                    Número normalizado:{' '}
+                    <span className="font-medium text-foreground">
+                      {whatsappDiagnostics?.normalizedPhone || 'não disponível'}
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Twilio configurado:{' '}
+                    <span className="font-medium text-foreground">
+                      {whatsappDiagnostics?.twilio?.hasSid &&
+                      whatsappDiagnostics?.twilio?.hasToken &&
+                      whatsappDiagnostics?.twilio?.hasFromNumber
+                        ? 'sim'
+                        : 'não'}
+                    </span>
+                  </p>
+                  {whatsappDiagnostics?.lastTestError && (
+                    <p className="text-xs text-rose-700">{whatsappDiagnostics.lastTestError}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    O teste envia uma mensagem real pelo backend. Se falhar, o app mostra a resposta
+                    do provedor para facilitar o diagnóstico de sandbox, credenciais ou número.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
