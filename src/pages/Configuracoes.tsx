@@ -34,6 +34,9 @@ export default function Configuracoes() {
   const [moduleProgress, setModuleProgress] = useState<ModuleProgressRecord[]>([])
   const [testingWhatsapp, setTestingWhatsapp] = useState(false)
   const [whatsappDiagnostics, setWhatsappDiagnostics] = useState<any | null>(null)
+  const authRecord = pb.authStore.record
+  const authCollectionName =
+    (authRecord as any)?.collectionName || (authRecord as any)?.collectionId || 'Nascimento'
 
   useEffect(() => {
     if (user) {
@@ -101,7 +104,7 @@ export default function Configuracoes() {
       }
 
       if (pb.authStore.record?.id) {
-        await pb.collection('Nascimento').update(pb.authStore.record.id, {
+        const updatedRecord = await pb.collection(authCollectionName).update(pb.authStore.record.id, {
           name,
           email,
           phone,
@@ -109,6 +112,7 @@ export default function Configuracoes() {
           telegram_enabled: telegramEnabled,
           telegram_id: telegramId,
         })
+        pb.authStore.save(pb.authStore.token, updatedRecord)
       }
 
       setUser({
@@ -185,7 +189,6 @@ export default function Configuracoes() {
     }
   }
 
-  const authRecord = pb.authStore.record
   const subscriptionStatus = authRecord?.subscription_status || 'trialing'
   const activePlanId = authRecord?.active_plan || ''
 
