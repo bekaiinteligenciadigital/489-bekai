@@ -23,6 +23,7 @@ ADD https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/po
 RUN unzip /tmp/pb.zip -d /pb/ && rm /tmp/pb.zip
 
 COPY ./pocketbase/hooks /pb/pb_hooks
+RUN find /pb/pb_hooks -type f -name "*.js" ! -name "*.pb.js" -exec sh -c 'for f do mv "$f" "${f%.js}.pb.js"; done' sh {} +
 COPY ./pocketbase/migrations /pb/pb_migrations
 COPY --from=frontend-builder /app/dist /pb/pb_public
 
