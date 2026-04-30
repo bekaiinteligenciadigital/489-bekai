@@ -5,22 +5,36 @@ function normalizePhone(value) {
   return '+' + digits
 }
 
+function hasSecret(name) {
+  try {
+    if ($secrets.has(name)) return true
+  } catch (_) {}
+
+  try {
+    return !!$secrets.get(name)
+  } catch (_) {
+    return false
+  }
+}
+
 function getTwilioSecretsStatus() {
   return {
-    hasSid: !!$secrets.get('TWILIO_ACCOUNT_SID'),
-    hasToken: !!$secrets.get('TWILIO_AUTH_TOKEN'),
-    hasFromNumber: !!$secrets.get('TWILIO_WHATSAPP_NUMBER'),
+    hasSid: hasSecret('TWILIO_ACCOUNT_SID'),
+    hasToken: hasSecret('TWILIO_AUTH_TOKEN'),
+    hasFromNumber: hasSecret('TWILIO_WHATSAPP_NUMBER'),
   }
 }
 
 function sendWhatsAppMessage(toPhone, messageText) {
+  const secretsStatus = getTwilioSecretsStatus()
+
+  if (!secretsStatus.hasSid || !secretsStatus.hasToken || !secretsStatus.hasFromNumber) {
+    throw new BadRequestError('Credenciais Twilio ausentes no servidor.')
+  }
+
   const sid = $secrets.get('TWILIO_ACCOUNT_SID')
   const token = $secrets.get('TWILIO_AUTH_TOKEN')
   const fromNum = $secrets.get('TWILIO_WHATSAPP_NUMBER')
-
-  if (!sid || !token || !fromNum) {
-    throw new BadRequestError('Credenciais Twilio ausentes no servidor.')
-  }
 
   const response = $http.send({
     url: 'https://' + sid + ':' + token + '@api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json',
