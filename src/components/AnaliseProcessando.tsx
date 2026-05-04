@@ -7,6 +7,8 @@ import { generateRiskAnalysis } from '@/services/ai'
 import useFamilyStore from '@/stores/useFamilyStore'
 import pb from '@/lib/pocketbase/client'
 
+const ANALYSIS_DRAFT_STORAGE_KEY = 'bekai:nova-analise:draft'
+
 function toPocketBaseRiskLevel(label: string) {
   const normalized = String(label || '')
     .normalize('NFD')
@@ -30,7 +32,7 @@ const STAGES = [
 
 export function AnaliseProcessando() {
   const navigate = useNavigate()
-  const { pendingAnalysis, childrenProfiles, setAIResults } = useFamilyStore()
+  const { pendingAnalysis, childrenProfiles, setAIResults, setPendingAnalysis } = useFamilyStore()
   const [progress, setProgress] = useState(0)
   const [stageIndex, setStageIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -92,6 +94,12 @@ export function AnaliseProcessando() {
         clearInterval(interval)
         setProgress(100)
         setDone(true)
+        setPendingAnalysis(null)
+        try {
+          window.localStorage.removeItem(ANALYSIS_DRAFT_STORAGE_KEY)
+        } catch (storageErr) {
+          console.warn('Could not clear analysis draft:', storageErr)
+        }
 
         setTimeout(() => navigate('/resultado', { state: { platforms: pendingAnalysis.platforms } }), 1000)
       } catch (err: any) {

@@ -91,14 +91,14 @@ export default function NovaAnalise() {
       const draft = window.localStorage.getItem(ANALYSIS_DRAFT_STORAGE_KEY)
       if (!draft) return
       const parsed = JSON.parse(draft)
-      setStep(parsed.step || 1)
-      setSelectedChild(parsed.selectedChild || '')
+      setStep(1)
+      setSelectedChild(parsed.selectedChild || childrenProfiles[0]?.id || '')
       setSelectedPlatforms(Array.isArray(parsed.selectedPlatforms) ? parsed.selectedPlatforms : [])
       setSelectedBehaviors(Array.isArray(parsed.selectedBehaviors) ? parsed.selectedBehaviors : [])
     } catch (err) {
       console.warn('Failed to restore analysis draft', err)
     }
-  }, [])
+  }, [childrenProfiles])
 
   useEffect(() => {
     if (!selectedChild || selectedPlatforms.length === 0) return
@@ -149,19 +149,6 @@ export default function NovaAnalise() {
 
     loadHistory()
   }, [])
-
-  useEffect(() => {
-    if (!selectedChild || selectedPlatforms.length > 0 || selectedBehaviors.length > 0) return
-    const previousRecord = history.find((item) => item.child === selectedChild)
-    if (!previousRecord?.behavior_patterns) return
-
-    if (Array.isArray(previousRecord.behavior_patterns.platforms)) {
-      setSelectedPlatforms(previousRecord.behavior_patterns.platforms)
-    }
-    if (Array.isArray(previousRecord.behavior_patterns.behaviors)) {
-      setSelectedBehaviors(previousRecord.behavior_patterns.behaviors)
-    }
-  }, [selectedChild, history, selectedPlatforms.length, selectedBehaviors.length])
 
   const childHistory = useMemo(
     () => (selectedChild ? history.filter((record) => record.child === selectedChild) : history),

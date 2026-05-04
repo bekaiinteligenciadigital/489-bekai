@@ -32,6 +32,8 @@ export type CounterIntervention = {
     algorithmGoal?: string
     deliveryMessage?: string
     youtubeQuery?: string
+    youtubeConfigured?: boolean
+    contentSource?: 'youtube_api' | 'manual_fallback'
     recommendedActions?: string[]
     reviewNotes?: string
     reviewedBy?: string

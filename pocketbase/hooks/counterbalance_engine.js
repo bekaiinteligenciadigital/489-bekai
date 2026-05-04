@@ -283,7 +283,9 @@ function buildIntervention(topic, triggerText, platform, contentHits) {
           ? 'media'
           : 'baixa'
 
-  const contentSuggestions = contentHits.length ? contentHits : fallbackCounterContent(topic)
+  const youtubeConfigured = hasSecret('YOUTUBE_API_KEY')
+  const usedYouTube = contentHits.length > 0
+  const contentSuggestions = usedYouTube ? contentHits : fallbackCounterContent(topic)
   const headlineTopic = topic.name || topic.slug
   const guardianSummary =
     'O agente BekAI identificou recorrencia de sinais ligados a "' +
@@ -318,6 +320,8 @@ function buildIntervention(topic, triggerText, platform, contentHits) {
     algorithmGoal:
       'Aumentar a exposicao recorrente a conteudos beneficos e reduzir a dominancia do tema nocivo nos proximos ciclos do algoritmo.',
     deliveryMessage,
+    youtubeConfigured,
+    contentSource: usedYouTube ? 'youtube_api' : 'manual_fallback',
     contentSuggestions,
   }
 }

@@ -265,6 +265,14 @@ export function CounterbalancePanel({
                       Busca de Contraponto no YouTube
                     </p>
                     <p className="mt-1 text-sm text-red-900">{recommendation.youtubeQuery}</p>
+                    <p className="mt-2 text-xs text-red-800/80">
+                      Fonte de sugestao:{' '}
+                      <span className="font-semibold">
+                        {recommendation.contentSource === 'youtube_api'
+                          ? 'YouTube Data API'
+                          : 'Curadoria manual de fallback'}
+                      </span>
+                    </p>
                   </div>
                 )}
 
