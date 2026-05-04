@@ -28,6 +28,7 @@ import { ConsentModal } from '@/components/parent/ConsentModal'
 import useFamilyStore from '@/stores/useFamilyStore'
 import { SocialConnectionsPanel } from '@/components/parent/SocialConnectionsPanel'
 import { CounterbalancePanel } from '@/components/parent/CounterbalancePanel'
+import { YouTubeAgentPanel } from '@/components/parent/YouTubeAgentPanel'
 import {
   SocialConnection,
   SyncJob,
@@ -430,6 +431,9 @@ export default function ParentDashboard() {
               />
               {activeChild && (
                 <CounterbalancePanel childId={activeChild.id} childName={activeChild.name} />
+              )}
+              {activeChild && (
+                <YouTubeAgentPanel childId={activeChild.id} childName={activeChild.name} />
               )}
               {activeChild && <BehavioralStratification events={events} />}
               <DigitalInfluenceMap events={events} />

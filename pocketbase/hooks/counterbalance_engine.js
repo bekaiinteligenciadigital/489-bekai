@@ -326,6 +326,29 @@ function buildIntervention(topic, triggerText, platform, contentHits) {
   }
 }
 
+function buildYouTubeAgentPayload(topic, query, items, childName, sourceEventId) {
+  return {
+    agentType: 'youtube',
+    matchedTopic: topic ? topic.slug : null,
+    matchedTopicName: topic ? topic.name : null,
+    youtubeQuery: query,
+    contentSource: items.length ? 'youtube_api' : 'manual_fallback',
+    guardianSummary:
+      'O Agente YouTube montou uma trilha de contraponto para ' +
+      childName +
+      ', priorizando repertorio benefico e reduzindo a dominancia do tema sensivel nas proximas interacoes.',
+    algorithmGoal:
+      'Aumentar sinais consistentes de interesse por conteudos construtivos no YouTube para influenciar recomendacoes futuras de forma indireta.',
+    recommendedActions: [
+      'Apresente os conteudos em contexto acompanhado, com conversa curta sobre o tema.',
+      'Repita a exposicao positiva ao longo da semana para fortalecer o novo padrao de interacao.',
+      'Observe se novos eventos reduzem a recorrencia do tema nocivo anterior.',
+    ],
+    sourceEventId: sourceEventId || null,
+    contentSuggestions: items.length ? items : topic ? fallbackCounterContent(topic) : [],
+  }
+}
+
 function saveIntervention(childId, sourceEventId, topicId, triggerText, recommendation) {
   try {
     const collection = $app.findCollectionByNameOrId('counter_interventions')
@@ -492,6 +515,93 @@ routerAdd(
       configured: true,
       query,
       items,
+    })
+  },
+  $apis.requireAuth(),
+)
+
+routerAdd(
+  'POST',
+  '/backend/v1/children/{id}/youtube-agent/run',
+  (e) => {
+    const childId = e.request.pathValue('id')
+    const body = e.requestInfo().body || {}
+    const child = $app.findRecordById('children', childId)
+    const authRecord = e.auth
+
+    ensureChildAccess(child, authRecord)
+
+    const topics = getTopics()
+    const topicSlug = String(body.topicSlug || '').trim()
+    const customQuery = String(body.query || '').trim()
+    const maxResults = Math.min(Math.max(parseInt(String(body.maxResults || '6'), 10) || 6, 1), 12)
+
+    let matchedTopic = topicSlug ? topics.find((item) => item.slug === topicSlug) || null : null
+    let sourceEvent = null
+
+    if (!matchedTopic && !customQuery) {
+      const events = $app.findRecordsByFilter(
+        'digital_events',
+        `child = "${childId}"`,
+        '-timestamp',
+        20,
+        0,
+      )
+
+      for (const event of events) {
+        const matched = matchTopic(getCounterText(event), event.get('platform'), topics)
+        if (matched) {
+          matchedTopic = matched.topic
+          sourceEvent = event
+          break
+        }
+      }
+    }
+
+    if (!matchedTopic && !customQuery) {
+      return e.json(200, {
+        success: false,
+        childId,
+        configured: hasSecret('YOUTUBE_API_KEY'),
+        message: 'Nenhum topico nocivo configurado foi detectado para acionar o Agente YouTube.',
+        items: [],
+      })
+    }
+
+    const query = customQuery || buildYouTubeCounterQuery(matchedTopic)
+    const items = searchYouTube(query).slice(0, maxResults)
+    const payload = buildYouTubeAgentPayload(
+      matchedTopic,
+      query,
+      items,
+      String(child.get('name') || 'jovem'),
+      sourceEvent ? sourceEvent.id : null,
+    )
+
+    let interventionId = null
+    if (matchedTopic) {
+      const saved = saveIntervention(
+        childId,
+        sourceEvent ? sourceEvent.id : null,
+        matchedTopic.id,
+        sourceEvent ? sourceEvent.get('content_summary') || query : query,
+        payload,
+      )
+      interventionId = saved ? saved.id : null
+    }
+
+    return e.json(200, {
+      success: true,
+      configured: hasSecret('YOUTUBE_API_KEY'),
+      childId,
+      interventionId,
+      query,
+      matchedTopic: matchedTopic
+        ? { id: matchedTopic.id, slug: matchedTopic.slug, name: matchedTopic.name, severity: matchedTopic.severity }
+        : null,
+      sourceEventId: sourceEvent ? sourceEvent.id : null,
+      items: payload.contentSuggestions,
+      recommendation: payload,
     })
   },
   $apis.requireAuth(),

@@ -179,3 +179,28 @@ export const searchYouTubeContent = async (query: string) => {
     message?: string
   }>
 }
+
+export const runChildYouTubeAgent = async (
+  childId: string,
+  payload?: {
+    query?: string
+    topicSlug?: string
+    maxResults?: number
+  },
+) => {
+  return pb.send(`/backend/v1/children/${childId}/youtube-agent/run`, {
+    method: 'POST',
+    body: payload || {},
+  }) as Promise<{
+    success: boolean
+    configured: boolean
+    childId: string
+    interventionId?: string | null
+    query?: string
+    matchedTopic?: { id: string; slug: string; name: string; severity: string } | null
+    sourceEventId?: string | null
+    items: NonNullable<CounterIntervention['recommendation_json']>['contentSuggestions']
+    recommendation?: CounterIntervention['recommendation_json']
+    message?: string
+  }>
+}
