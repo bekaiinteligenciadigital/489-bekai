@@ -36,6 +36,17 @@ import { useRealtime } from '@/hooks/use-realtime'
 import { AnaliseProcessando } from '@/components/AnaliseProcessando'
 import { TermTooltip } from '@/components/ui/glossary-tooltip'
 import { cn } from '@/lib/utils'
+import {
+  getChildCounterInterventions,
+  runChildYouTubeAgent,
+  type CounterIntervention,
+} from '@/services/counterbalance'
+
+type ResultLink = {
+  title: string
+  url: string
+  type: 'video' | 'article' | 'channel' | 'playlist' | 'site'
+}
 
 export default function Resultado() {
   const location = useLocation()
@@ -52,12 +63,22 @@ export default function Resultado() {
   const [analysis, setAnalysis] = useState<any>(null)
   const [riskProfile, setRiskProfile] = useState<any>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [counterInterventions, setCounterInterventions] = useState<CounterIntervention[]>([])
+  const [youtubeAgentResult, setYouTubeAgentResult] = useState<{
+    query?: string
+    configured?: boolean
+    recommendation?: CounterIntervention['recommendation_json']
+    items?: NonNullable<CounterIntervention['recommendation_json']>['contentSuggestions']
+  } | null>(null)
+
+  const activeChildId =
+    location.state?.childId || aiResults.analyzedChildId || childrenProfiles[0]?.id || null
 
   const loadData = async () => {
     try {
       const kids = await pb.collection('children').getFullList({ sort: '-created' })
       if (kids.length > 0) {
-        const currentChild = kids[0]
+        const currentChild = kids.find((kid) => kid.id === activeChildId) || kids[0]
         setChild(currentChild)
 
         // Check if any assessment is currently submitted (analyzing)
@@ -80,6 +101,34 @@ export default function Resultado() {
           (p: any) => p.expand?.assessment?.child === currentChild.id,
         )
         setRiskProfile(childProfiles[0] || null)
+
+        try {
+          const interventions = await getChildCounterInterventions(currentChild.id)
+          setCounterInterventions(interventions)
+
+          const latestWithSuggestions = interventions.find(
+            (entry) => entry.recommendation_json?.contentSuggestions?.length,
+          )
+
+          if (latestWithSuggestions) {
+            setYouTubeAgentResult({
+              query: latestWithSuggestions.recommendation_json?.youtubeQuery,
+              configured: latestWithSuggestions.recommendation_json?.youtubeConfigured,
+              recommendation: latestWithSuggestions.recommendation_json,
+              items: latestWithSuggestions.recommendation_json?.contentSuggestions || [],
+            })
+          } else {
+            const youtubeResult = await runChildYouTubeAgent(currentChild.id, { maxResults: 6 })
+            setYouTubeAgentResult({
+              query: youtubeResult.query,
+              configured: youtubeResult.configured,
+              recommendation: youtubeResult.recommendation,
+              items: youtubeResult.items || [],
+            })
+          }
+        } catch (counterErr) {
+          console.warn('Could not load YouTube/counterbalance suggestions:', counterErr)
+        }
 
         const items = await pb.collection('content_items').getFullList({
           expand: 'creator',
@@ -108,7 +157,7 @@ export default function Resultado() {
       }
     }
     fetchLib()
-  }, [toast])
+  }, [toast, activeChildId])
 
   useRealtime('assessments', loadData)
   useRealtime('analysis_records', loadData)
@@ -146,9 +195,24 @@ export default function Resultado() {
     parent: '',
   }
 
-  const exposureScore = riskProfile?.exposure_score || 85
-  const distortionScore = riskProfile?.distortion_score || 70
-  const instabilityScore = riskProfile?.instability_score || 75
+  const analysisScores = aiResults.analysisResult?.scores || []
+  const getAnalysisScore = (keywords: string[]) => {
+    const match = analysisScores.find((score) =>
+      keywords.some((keyword) =>
+        score.dimension.toLowerCase().includes(keyword.toLowerCase()),
+      ),
+    )
+    return match?.score ?? null
+  }
+
+  const exposureScore =
+    riskProfile?.exposure_score || getAnalysisScore(['comparação', 'social', 'pressão']) || 85
+  const distortionScore =
+    riskProfile?.distortion_score ||
+    getAnalysisScore(['hiperestimulação', 'algorítmica', 'atenção']) ||
+    70
+  const instabilityScore =
+    riskProfile?.instability_score || getAnalysisScore(['sono', 'ritmo', 'impacto']) || 75
   const rationaleJson = riskProfile?.rationale_json || {}
   const riskLevel = analysis?.risk_level || 'High'
 
@@ -239,7 +303,38 @@ export default function Resultado() {
     { title: 'Podcast: Criando filhos antifrágeis', url: 'https://youtube.com', type: 'video' },
   ]
 
-  const renderLinks = (links: any[], colorClass: string) => (
+  const recommendation =
+    youtubeAgentResult?.recommendation || counterInterventions[0]?.recommendation_json || null
+
+  const youtubeSuggestions =
+    recommendation?.contentSuggestions || youtubeAgentResult?.items || []
+
+  const youtubeLinks: ResultLink[] = youtubeSuggestions
+    .filter((item) => item?.url && item?.title)
+    .map((item) => ({
+      title: item.title,
+      url: item.url as string,
+      type:
+        item.resourceType === 'channel'
+          ? 'channel'
+          : item.resourceType === 'playlist'
+            ? 'playlist'
+            : item.resourceType === 'video'
+              ? 'video'
+              : 'site',
+    }))
+
+  const dynamicPropositoLinks: ResultLink[] =
+    youtubeLinks.slice(0, 3).length > 0
+      ? youtubeLinks.slice(0, 3)
+      : (propositoLinks as ResultLink[])
+
+  const dynamicValorLinks: ResultLink[] =
+    youtubeLinks.slice(3, 6).length > 0
+      ? youtubeLinks.slice(3, 6)
+      : (valorLinks as ResultLink[])
+
+  const renderLinks = (links: ResultLink[], colorClass: string) => (
     <ul className="space-y-2 mt-3">
       {links.map((link, idx) => (
         <li key={idx}>
@@ -648,6 +743,8 @@ export default function Resultado() {
               <h3 className="font-bold text-xl text-foreground">Comportamento Analisado</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {analysis?.insights_summary ||
+                  recommendation?.guardianSummary ||
+                  aiResults.analysisResult?.summary ||
                   'Consumo de vídeos ultra-rápidos e comportamentos anômalos detectados. A arquitetura de escolhas do algoritmo está favorecendo a hiper-estimulação e o engajamento reativo, diminuindo a capacidade de atenção sustentada.'}
               </p>
               <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
@@ -666,9 +763,10 @@ export default function Resultado() {
                 Score de Resiliência: {riskProfile?.protective_score || 30}/100
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                A capacidade atual de lidar com influências nocivas é limitada. O score{' '}
-                {riskProfile?.protective_score || 30} indica uma necessidade urgente de intervenção
-                para reforçar vínculos reais e construir novas rotinas offline estruturadas.
+                {recommendation?.algorithmGoal ||
+                  `A capacidade atual de lidar com influências nocivas é limitada. O score ${
+                    riskProfile?.protective_score || 30
+                  } indica uma necessidade urgente de intervenção para reforçar vínculos reais e construir novas rotinas offline estruturadas.`}
               </p>
               <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground">
@@ -692,17 +790,20 @@ export default function Resultado() {
               <span className="text-xs uppercase font-bold text-emerald-600">
                 Sugestão de Curadoria: Propósito e Foco
               </span>
-              <h3 className="font-bold text-xl text-emerald-900">Ciência da Rotina & Disciplina</h3>
+              <h3 className="font-bold text-xl text-emerald-900">
+                {recommendation?.youtubeQuery
+                  ? `Resultados guiados por: ${recommendation.youtubeQuery}`
+                  : 'Ciência da Rotina & Disciplina'}
+              </h3>
               <p className="text-sm text-emerald-800/80 leading-relaxed">
-                Apresente conteúdos com apelo estético jovem sobre esportes, mentalidade prática,
-                superação de desafios e responsabilidade pessoal para reconfigurar o algoritmo
-                positivamente.
+                {recommendation?.counterNarrative ||
+                  'Apresente conteúdos com apelo estético jovem sobre esportes, mentalidade prática, superação de desafios e responsabilidade pessoal para reconfigurar o algoritmo positivamente.'}
               </p>
               <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100">
                 <span className="text-[10px] uppercase font-bold text-emerald-700/70">
                   Exemplos Práticos para Consumo
                 </span>
-                {renderLinks(propositoLinks, 'text-emerald-700')}
+                {renderLinks(dynamicPropositoLinks, 'text-emerald-700')}
               </div>
             </div>
 
@@ -710,17 +811,20 @@ export default function Resultado() {
               <span className="text-xs uppercase font-bold text-emerald-600">
                 Sugestão de Curadoria: Valor Relacional
               </span>
-              <h3 className="font-bold text-xl text-emerald-900">Cidadania e Vínculos</h3>
+              <h3 className="font-bold text-xl text-emerald-900">
+                {recommendation?.contentSource === 'youtube_api'
+                  ? 'Curadoria oficial da YouTube Data API'
+                  : 'Cidadania e Vínculos'}
+              </h3>
               <p className="text-sm text-emerald-800/80 leading-relaxed">
-                Incentive documentários profundos e recortes de podcasts que valorizem a
-                estabilidade familiar, o pensamento crítico de longo prazo e o respeito genuíno na
-                comunidade.
+                {recommendation?.deliveryMessage ||
+                  'Incentive documentários profundos e recortes de podcasts que valorizem a estabilidade familiar, o pensamento crítico de longo prazo e o respeito genuíno na comunidade.'}
               </p>
               <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100">
                 <span className="text-[10px] uppercase font-bold text-emerald-700/70">
                   Exemplos Práticos para Consumo
                 </span>
-                {renderLinks(valorLinks, 'text-emerald-700')}
+                {renderLinks(dynamicValorLinks, 'text-emerald-700')}
               </div>
             </div>
           </CardContent>

@@ -101,7 +101,16 @@ export function AnaliseProcessando() {
           console.warn('Could not clear analysis draft:', storageErr)
         }
 
-        setTimeout(() => navigate('/resultado', { state: { platforms: pendingAnalysis.platforms } }), 1000)
+        setTimeout(
+          () =>
+            navigate('/resultado', {
+              state: {
+                platforms: pendingAnalysis.platforms,
+                childId: pendingAnalysis.childId,
+              },
+            }),
+          1000,
+        )
       } catch (err: any) {
         if (cancelled) return
         clearInterval(interval)
