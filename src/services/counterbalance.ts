@@ -31,6 +31,7 @@ export type CounterIntervention = {
     guardianSummary?: string
     algorithmGoal?: string
     deliveryMessage?: string
+    youtubeQuery?: string
     recommendedActions?: string[]
     reviewNotes?: string
     reviewedBy?: string
@@ -39,10 +40,19 @@ export type CounterIntervention = {
     deliveredAt?: string
     contentSuggestions?: Array<{
       platform: string
+      resourceType?: 'video' | 'channel' | 'playlist' | 'manual'
       title: string
       description?: string
       url?: string
       thumbnail?: string
+      channelTitle?: string
+      publishedAt?: string
+      duration?: string
+      embeddable?: boolean | null
+      viewCount?: string
+      subscriberCount?: string
+      videoCount?: string
+      itemCount?: string | number
     }>
   }
   created: string
@@ -149,7 +159,21 @@ export const previewCounterbalance = async (payload: {
   }) as Promise<{
     success: boolean
     matched: boolean
+    youtubeQuery?: string
     recommendation?: CounterIntervention['recommendation_json']
+    message?: string
+  }>
+}
+
+export const searchYouTubeContent = async (query: string) => {
+  return pb.send('/backend/v1/youtube/search', {
+    method: 'POST',
+    body: { query },
+  }) as Promise<{
+    success: boolean
+    configured: boolean
+    query: string
+    items: NonNullable<CounterIntervention['recommendation_json']>['contentSuggestions']
     message?: string
   }>
 }

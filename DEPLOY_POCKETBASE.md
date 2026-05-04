@@ -59,6 +59,7 @@ Este repositorio agora tem `render.yaml`.
 Obrigatorio para os agentes:
 
 - `GROQ_API_KEY`
+- `YOUTUBE_API_KEY` para busca oficial de videos, canais e playlists de contraponto
 
 Obrigatorio quando for ligar OAuth real das redes:
 
@@ -73,6 +74,16 @@ Obrigatorio quando for ligar OAuth real das redes:
 Base de referencia:
 
 - `deploy-pocketbase.env.example`
+
+## YouTube no contraponto
+
+Com `YOUTUBE_API_KEY` configurada, o backend passa a:
+
+- buscar conteudos positivos no YouTube via API oficial
+- sugerir videos, canais e playlists dentro das intervencoes de contraponto
+- registrar a query usada para a curadoria no painel operacional
+
+Sem essa chave, o sistema continua funcionando com fallback local de curadoria manual.
 
 ## Persistencia
 

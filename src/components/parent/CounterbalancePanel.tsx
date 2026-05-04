@@ -259,6 +259,15 @@ export function CounterbalancePanel({
                   </div>
                 )}
 
+                {recommendation.youtubeQuery && (
+                  <div className="rounded-lg border bg-red-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
+                      Busca de Contraponto no YouTube
+                    </p>
+                    <p className="mt-1 text-sm text-red-900">{recommendation.youtubeQuery}</p>
+                  </div>
+                )}
+
                 {suggestions.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -273,6 +282,18 @@ export function CounterbalancePanel({
                           <p className="text-sm font-medium text-foreground line-clamp-2">
                             {item.title}
                           </p>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {item.resourceType && (
+                              <Badge variant="outline" className="text-[10px] uppercase">
+                                {item.resourceType}
+                              </Badge>
+                            )}
+                            {item.channelTitle && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {item.channelTitle}
+                              </Badge>
+                            )}
+                          </div>
                           {item.description && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                               {item.description}

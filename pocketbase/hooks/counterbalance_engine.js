@@ -1,4 +1,19 @@
 const YOUTUBE_SEARCH_API = 'https://www.googleapis.com/youtube/v3/search'
+const YOUTUBE_VIDEOS_API = 'https://www.googleapis.com/youtube/v3/videos'
+const YOUTUBE_CHANNELS_API = 'https://www.googleapis.com/youtube/v3/channels'
+const YOUTUBE_PLAYLISTS_API = 'https://www.googleapis.com/youtube/v3/playlists'
+
+function hasSecret(name) {
+  try {
+    if ($secrets.has(name)) return true
+  } catch (_) {}
+
+  try {
+    return !!$secrets.get(name)
+  } catch (_) {
+    return false
+  }
+}
 
 function getCounterText(record) {
   const summary = String(record.get('content_summary') || '')
@@ -59,46 +74,199 @@ function matchTopic(inputText, platform, topics) {
   return best
 }
 
-function searchYouTube(query) {
-  if (!$secrets.has('YOUTUBE_API_KEY')) return []
+function buildYouTubeCounterQuery(topic) {
+  const parts = []
+  if (topic && topic.counterKeywords && topic.counterKeywords.length) {
+    parts.push(topic.counterKeywords.slice(0, 2).join(' '))
+  }
+  if (topic && topic.name) {
+    parts.push(topic.name)
+  }
+  parts.push('conteudo educativo saudavel')
+  return parts.filter(Boolean).join(' ')
+}
+
+function youtubeApiGet(baseUrl, params) {
+  if (!hasSecret('YOUTUBE_API_KEY')) return null
+
+  const query = Object.keys(params || {})
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== '')
+    .map((key) => key + '=' + encodeURIComponent(String(params[key])))
+    .join('&')
 
   const response = $http.send({
-    url:
-      YOUTUBE_SEARCH_API +
-      '?part=snippet&type=video&maxResults=5&safeSearch=strict&videoEmbeddable=true&q=' +
-      encodeURIComponent(query) +
-      '&key=' +
-      encodeURIComponent($secrets.get('YOUTUBE_API_KEY')),
+    url: baseUrl + '?' + query + '&key=' + encodeURIComponent($secrets.get('YOUTUBE_API_KEY')),
     method: 'GET',
     timeout: 30,
   })
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    console.log('counterbalance_engine: youtube search failed', response.statusCode, response.raw)
-    return []
+    console.log('counterbalance_engine: youtube request failed', baseUrl, response.statusCode, response.raw)
+    return null
   }
 
-  const body = response.json || {}
+  return response.json || {}
+}
+
+function fetchYouTubeVideoDetails(videoIds) {
+  if (!videoIds.length) return {}
+
+  const body = youtubeApiGet(YOUTUBE_VIDEOS_API, {
+    part: 'snippet,contentDetails,statistics,status',
+    id: videoIds.join(','),
+    maxResults: videoIds.length,
+  })
+
+  const items = body && Array.isArray(body.items) ? body.items : []
+  const details = {}
+  items.forEach((item) => {
+    details[item.id] = item
+  })
+  return details
+}
+
+function fetchYouTubeChannelDetails(channelIds) {
+  if (!channelIds.length) return {}
+
+  const body = youtubeApiGet(YOUTUBE_CHANNELS_API, {
+    part: 'snippet,statistics',
+    id: channelIds.join(','),
+    maxResults: channelIds.length,
+  })
+
+  const items = body && Array.isArray(body.items) ? body.items : []
+  const details = {}
+  items.forEach((item) => {
+    details[item.id] = item
+  })
+  return details
+}
+
+function fetchYouTubePlaylistDetails(playlistIds) {
+  if (!playlistIds.length) return {}
+
+  const body = youtubeApiGet(YOUTUBE_PLAYLISTS_API, {
+    part: 'snippet,contentDetails',
+    id: playlistIds.join(','),
+    maxResults: playlistIds.length,
+  })
+
+  const items = body && Array.isArray(body.items) ? body.items : []
+  const details = {}
+  items.forEach((item) => {
+    details[item.id] = item
+  })
+  return details
+}
+
+function searchYouTube(query) {
+  if (!hasSecret('YOUTUBE_API_KEY')) return []
+
+  const body = youtubeApiGet(YOUTUBE_SEARCH_API, {
+    part: 'snippet',
+    q: query,
+    maxResults: 8,
+    safeSearch: 'strict',
+    relevanceLanguage: 'pt',
+    regionCode: 'BR',
+  })
+
   const items = Array.isArray(body.items) ? body.items : []
-  return items.map((item) => ({
-    platform: 'youtube',
-    title: item.snippet && item.snippet.title ? item.snippet.title : 'Video recomendado',
-    description:
-      item.snippet && item.snippet.description ? item.snippet.description : '',
-    url:
-      item.id && item.id.videoId
-        ? 'https://www.youtube.com/watch?v=' + item.id.videoId
-        : '',
-    thumbnail:
-      item.snippet && item.snippet.thumbnails && item.snippet.thumbnails.medium
-        ? item.snippet.thumbnails.medium.url
-        : '',
-  }))
+  const videoIds = []
+  const channelIds = []
+  const playlistIds = []
+
+  items.forEach((item) => {
+    const kind = item && item.id && item.id.kind ? item.id.kind : ''
+    if (kind === 'youtube#video' && item.id.videoId) videoIds.push(item.id.videoId)
+    if (kind === 'youtube#channel' && item.id.channelId) channelIds.push(item.id.channelId)
+    if (kind === 'youtube#playlist' && item.id.playlistId) playlistIds.push(item.id.playlistId)
+  })
+
+  const videoDetails = fetchYouTubeVideoDetails(videoIds)
+  const channelDetails = fetchYouTubeChannelDetails(channelIds)
+  const playlistDetails = fetchYouTubePlaylistDetails(playlistIds)
+
+  return items
+    .map((item) => {
+      const snippet = item && item.snippet ? item.snippet : {}
+      const kind = item && item.id && item.id.kind ? item.id.kind : ''
+      const mediumThumb =
+        snippet.thumbnails && snippet.thumbnails.medium ? snippet.thumbnails.medium.url : ''
+      const highThumb =
+        snippet.thumbnails && snippet.thumbnails.high ? snippet.thumbnails.high.url : ''
+
+      if (kind === 'youtube#video' && item.id.videoId) {
+        const detail = videoDetails[item.id.videoId] || {}
+        return {
+          platform: 'youtube',
+          resourceType: 'video',
+          title: snippet.title || 'Video recomendado',
+          description: snippet.description || '',
+          url: 'https://www.youtube.com/watch?v=' + item.id.videoId,
+          thumbnail: mediumThumb || highThumb,
+          channelTitle: snippet.channelTitle || '',
+          publishedAt: snippet.publishedAt || '',
+          duration:
+            detail.contentDetails && detail.contentDetails.duration
+              ? detail.contentDetails.duration
+              : '',
+          embeddable:
+            detail.status && typeof detail.status.embeddable === 'boolean'
+              ? detail.status.embeddable
+              : null,
+          viewCount:
+            detail.statistics && detail.statistics.viewCount ? detail.statistics.viewCount : '',
+        }
+      }
+
+      if (kind === 'youtube#channel' && item.id.channelId) {
+        const detail = channelDetails[item.id.channelId] || {}
+        return {
+          platform: 'youtube',
+          resourceType: 'channel',
+          title: snippet.title || 'Canal recomendado',
+          description: snippet.description || '',
+          url: 'https://www.youtube.com/channel/' + item.id.channelId,
+          thumbnail: mediumThumb || highThumb,
+          channelTitle: snippet.channelTitle || snippet.title || '',
+          publishedAt: snippet.publishedAt || '',
+          subscriberCount:
+            detail.statistics && detail.statistics.subscriberCount
+              ? detail.statistics.subscriberCount
+              : '',
+          videoCount:
+            detail.statistics && detail.statistics.videoCount ? detail.statistics.videoCount : '',
+        }
+      }
+
+      if (kind === 'youtube#playlist' && item.id.playlistId) {
+        const detail = playlistDetails[item.id.playlistId] || {}
+        return {
+          platform: 'youtube',
+          resourceType: 'playlist',
+          title: snippet.title || 'Playlist recomendada',
+          description: snippet.description || '',
+          url: 'https://www.youtube.com/playlist?list=' + item.id.playlistId,
+          thumbnail: mediumThumb || highThumb,
+          channelTitle: snippet.channelTitle || '',
+          publishedAt: snippet.publishedAt || '',
+          itemCount:
+            detail.contentDetails && detail.contentDetails.itemCount
+              ? detail.contentDetails.itemCount
+              : '',
+        }
+      }
+
+      return null
+    })
+    .filter(Boolean)
 }
 
 function fallbackCounterContent(topic) {
   return topic.counterKeywords.slice(0, 4).map((keyword, index) => ({
     platform: 'manual_curation',
+    resourceType: 'manual',
     title: 'Sugestao ' + String(index + 1) + ': ' + keyword,
     description: 'Use este tema como base para curadoria positiva e contraponto educativo.',
     url: '',
@@ -275,7 +443,7 @@ routerAdd(
       })
     }
 
-    const query = topic.counterKeywords.length ? topic.counterKeywords[0] : topic.name
+    const query = buildYouTubeCounterQuery(topic)
     const contentSuggestions = searchYouTube(query)
     const recommendation = buildIntervention(
       topic,
@@ -287,7 +455,39 @@ routerAdd(
     return e.json(200, {
       success: true,
       matched: true,
+      youtubeQuery: query,
       recommendation,
+    })
+  },
+  $apis.requireAuth(),
+)
+
+routerAdd(
+  'POST',
+  '/backend/v1/youtube/search',
+  (e) => {
+    const body = e.requestInfo().body || {}
+    const query = String(body.query || '').trim()
+    if (!query) {
+      throw new BadRequestError('query e obrigatoria para busca no YouTube.')
+    }
+
+    if (!hasSecret('YOUTUBE_API_KEY')) {
+      return e.json(200, {
+        success: false,
+        configured: false,
+        query,
+        items: [],
+        message: 'YOUTUBE_API_KEY nao configurada no servidor.',
+      })
+    }
+
+    const items = searchYouTube(query)
+    return e.json(200, {
+      success: true,
+      configured: true,
+      query,
+      items,
     })
   },
   $apis.requireAuth(),
@@ -319,7 +519,7 @@ routerAdd(
       if (!matched) continue
 
       const topic = matched.topic
-      const query = topic.counterKeywords.length ? topic.counterKeywords[0] : topic.name
+      const query = buildYouTubeCounterQuery(topic)
       const contentSuggestions = searchYouTube(query)
       const recommendation = buildIntervention(
         topic,
@@ -327,6 +527,7 @@ routerAdd(
         event.get('platform'),
         contentSuggestions,
       )
+      recommendation.youtubeQuery = query
 
       const saved = saveIntervention(childId, event.id, topic.id, recommendation.triggerText, recommendation)
       interventions.push({
