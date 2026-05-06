@@ -105,7 +105,7 @@ export function AnaliseColeta({ setStep }: { setStep: (step: number) => void }) 
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="justify-between border-t pt-6">
+      <CardFooter className="justify-between border-t pt-6 pb-28 md:pb-6">
         <Button variant="ghost" onClick={() => setStep(1)}>
           Voltar
         </Button>

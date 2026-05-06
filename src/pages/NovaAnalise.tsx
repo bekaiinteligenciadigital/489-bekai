@@ -280,9 +280,12 @@ export default function NovaAnalise() {
                   {PLATFORMS.map((platform) => (
                     <Badge
                       key={platform}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selectedPlatforms.includes(platform)}
                       variant={selectedPlatforms.includes(platform) ? 'default' : 'outline'}
                       className={cn(
-                        'cursor-pointer transition-all px-3 py-1.5 text-sm',
+                        'cursor-pointer transition-all px-3 py-1.5 text-sm select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                         selectedPlatforms.includes(platform)
                           ? 'shadow-md hover:bg-primary/90'
                           : 'hover:bg-muted',
@@ -294,6 +297,16 @@ export default function NovaAnalise() {
                             : [...prev, platform],
                         )
                       }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setSelectedPlatforms((prev) =>
+                            prev.includes(platform)
+                              ? prev.filter((item) => item !== platform)
+                              : [...prev, platform],
+                          )
+                        }
+                      }}
                     >
                       {platform}
                     </Badge>
