@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DossieModal } from '@/components/landing/DossieModal'
 import { useAuth } from '@/hooks/use-auth'
+import pb from '@/lib/pocketbase/client'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 import logoUrl from '@/assets/logo-final-bekai-ac6d9.jpeg'
 import {
   ShieldCheck,
@@ -48,9 +50,18 @@ function LoginModal({ onClose }: { onClose: () => void }) {
     const { error } = await signIn(email, password)
     setLoading(false)
     if (error) {
-      setError('E-mail ou senha incorretos. Tente novamente.')
+      setError(getErrorMessage(error))
     } else {
+      const user = pb.authStore.record
       onClose()
+      if (user?.role === 'professional') {
+        if (!user.council_id) {
+          navigate('/cadastro-profissional')
+        } else {
+          navigate('/specialist/dashboard')
+        }
+        return
+      }
       navigate('/dashboard')
     }
   }
