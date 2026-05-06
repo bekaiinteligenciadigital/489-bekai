@@ -20,6 +20,7 @@ import { UserPlus, ArrowRight, CheckCircle2, Users, Plus, Trash2 } from 'lucide-
 import pb from '@/lib/pocketbase/client'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { createSocialConnections } from '@/services/monitoring'
+import { useAuth } from '@/hooks/use-auth'
 
 interface PlatformInput {
   platform: string
@@ -30,6 +31,7 @@ export default function SetupJovem() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { addChild, plan, essentialChildrenCount } = useFamilyStore()
+  const { user } = useAuth()
 
   const totalSlots = essentialChildrenCount || 1
 
@@ -129,6 +131,18 @@ export default function SetupJovem() {
   }
 
   const handleFinish = async () => {
+    if (!user?.id || !pb.authStore.record?.id) {
+      toast({
+        title: 'Sessão necessária',
+        description: 'Faça login novamente antes de concluir o setup do jovem.',
+        variant: 'destructive',
+      })
+      navigate('/cadastro-cliente?tab=login')
+      return
+    }
+
+    const parentId = pb.authStore.record.id
+
     try {
       for (const p of pendingProfiles.slice(0, totalSlots)) {
         const childRecord = await pb.collection('children').create({
@@ -136,7 +150,7 @@ export default function SetupJovem() {
           birth_date: new Date(
             new Date().setFullYear(new Date().getFullYear() - p.age),
           ).toISOString(),
-          parent: pb.authStore.record?.id,
+          parent: parentId,
           platforms: p.platforms, // Saving JSON object array directly
           professional_info: p.healthProfessional,
         })
