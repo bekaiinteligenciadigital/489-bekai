@@ -1,41 +1,36 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import {
+  Activity,
   AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  BookText,
+  Bot,
+  Download,
+  ExternalLink,
+  Fingerprint,
+  Globe,
+  PlayCircle,
   ShieldCheck,
-  HeartPulse,
-  BrainCircuit,
-  Scale,
+  Sparkles,
   Stethoscope,
   UserX,
-  Bot,
-  ArrowLeft,
-  Activity,
-  Fingerprint,
-  Microscope,
-  Download,
-  BookText,
-  ExternalLink,
-  PlayCircle,
-  BookOpen,
-  Globe,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
-import { ResultadoMentorPanel } from '@/components/ResultadoMentorPanel'
 import { ReportExportModal } from '@/components/parent/ReportExportModal'
 import { AIResultPanel } from '@/components/AIResultPanel'
-import useFamilyStore from '@/stores/useFamilyStore'
-import { useState, useEffect } from 'react'
-import pb from '@/lib/pocketbase/client'
-import { useToast } from '@/hooks/use-toast'
 import { ScientificPreviewModal } from '@/components/ScientificPreviewModal'
-import { useRealtime } from '@/hooks/use-realtime'
 import { AnaliseProcessando } from '@/components/AnaliseProcessando'
-import { TermTooltip } from '@/components/ui/glossary-tooltip'
 import { cn } from '@/lib/utils'
+import pb from '@/lib/pocketbase/client'
+import useFamilyStore from '@/stores/useFamilyStore'
+import { useToast } from '@/hooks/use-toast'
+import { useRealtime } from '@/hooks/use-realtime'
 import {
   getChildCounterInterventions,
   runChildYouTubeAgent,
@@ -46,6 +41,46 @@ type ResultLink = {
   title: string
   url: string
   type: 'video' | 'article' | 'channel' | 'playlist' | 'site'
+  description?: string
+  source?: string
+}
+
+type DisplayScore = {
+  dimension: string
+  score: number
+  label: string
+  description: string
+  rationale?: string
+}
+
+function translateRisk(level: string) {
+  const map: Record<string, string> = {
+    Low: 'Baixo',
+    Medium: 'Médio',
+    High: 'Alto',
+    Critical: 'Crítico',
+    Baixo: 'Baixo',
+    Moderado: 'Moderado',
+    Alto: 'Alto',
+    Crítico: 'Crítico',
+    Critico: 'Crítico',
+  }
+
+  return map[level] || level
+}
+
+function getScoreColor(score: number) {
+  if (score >= 80) return 'text-red-700 border-red-200 bg-red-50'
+  if (score >= 60) return 'text-orange-700 border-orange-200 bg-orange-50'
+  if (score >= 35) return 'text-amber-700 border-amber-200 bg-amber-50'
+  return 'text-emerald-700 border-emerald-200 bg-emerald-50'
+}
+
+function getProgressClass(score: number) {
+  if (score >= 80) return '[&>div]:bg-red-500'
+  if (score >= 60) return '[&>div]:bg-orange-500'
+  if (score >= 35) return '[&>div]:bg-amber-500'
+  return '[&>div]:bg-emerald-500'
 }
 
 export default function Resultado() {
@@ -57,8 +92,6 @@ export default function Resultado() {
   const [library, setLibrary] = useState<any[]>([])
   const [previewRef, setPreviewRef] = useState<any | null>(null)
   const [contentItems, setContentItems] = useState<any[]>([])
-  const { toast } = useToast()
-
   const [child, setChild] = useState<any>(null)
   const [analysis, setAnalysis] = useState<any>(null)
   const [riskProfile, setRiskProfile] = useState<any>(null)
@@ -70,6 +103,7 @@ export default function Resultado() {
     recommendation?: CounterIntervention['recommendation_json']
     items?: NonNullable<CounterIntervention['recommendation_json']>['contentSuggestions']
   } | null>(null)
+  const { toast } = useToast()
 
   const activeChildId =
     location.state?.childId || aiResults.analyzedChildId || childrenProfiles[0]?.id || null
@@ -77,66 +111,64 @@ export default function Resultado() {
   const loadData = async () => {
     try {
       const kids = await pb.collection('children').getFullList({ sort: '-created' })
-      if (kids.length > 0) {
-        const currentChild = kids.find((kid) => kid.id === activeChildId) || kids[0]
-        setChild(currentChild)
+      if (!kids.length) return
 
-        // Check if any assessment is currently submitted (analyzing)
-        const assessments = await pb.collection('assessments').getFullList({
-          filter: `child = "${currentChild.id}"`,
-          sort: '-created',
-        })
-        const processing = assessments.some((a) => a.status === 'submitted')
-        setIsAnalyzing(processing)
+      const currentChild = kids.find((kid) => kid.id === activeChildId) || kids[0]
+      setChild(currentChild)
 
-        const analyses = await pb
-          .collection('analysis_records')
-          .getFullList({ filter: `child = "${currentChild.id}"`, sort: '-created' })
-        setAnalysis(analyses[0] || null)
+      const assessments = await pb.collection('assessments').getFullList({
+        filter: `child = "${currentChild.id}"`,
+        sort: '-created',
+      })
+      setIsAnalyzing(assessments.some((entry) => entry.status === 'submitted'))
 
-        const profiles = await pb
-          .collection('risk_profiles')
-          .getFullList({ expand: 'assessment', sort: '-created' })
-        const childProfiles = profiles.filter(
-          (p: any) => p.expand?.assessment?.child === currentChild.id,
+      const analyses = await pb.collection('analysis_records').getFullList({
+        filter: `child = "${currentChild.id}"`,
+        sort: '-created',
+      })
+      setAnalysis(analyses[0] || null)
+
+      const profiles = await pb.collection('risk_profiles').getFullList({
+        expand: 'assessment',
+        sort: '-created',
+      })
+      const childProfiles = profiles.filter((entry: any) => entry.expand?.assessment?.child === currentChild.id)
+      setRiskProfile(childProfiles[0] || null)
+
+      try {
+        const interventions = await getChildCounterInterventions(currentChild.id)
+        setCounterInterventions(interventions)
+
+        const latestWithSuggestions = interventions.find(
+          (entry) => entry.recommendation_json?.contentSuggestions?.length,
         )
-        setRiskProfile(childProfiles[0] || null)
 
-        try {
-          const interventions = await getChildCounterInterventions(currentChild.id)
-          setCounterInterventions(interventions)
-
-          const latestWithSuggestions = interventions.find(
-            (entry) => entry.recommendation_json?.contentSuggestions?.length,
-          )
-
-          if (latestWithSuggestions) {
-            setYouTubeAgentResult({
-              query: latestWithSuggestions.recommendation_json?.youtubeQuery,
-              configured: latestWithSuggestions.recommendation_json?.youtubeConfigured,
-              recommendation: latestWithSuggestions.recommendation_json,
-              items: latestWithSuggestions.recommendation_json?.contentSuggestions || [],
-            })
-          } else {
-            const youtubeResult = await runChildYouTubeAgent(currentChild.id, { maxResults: 6 })
-            setYouTubeAgentResult({
-              query: youtubeResult.query,
-              configured: youtubeResult.configured,
-              recommendation: youtubeResult.recommendation,
-              items: youtubeResult.items || [],
-            })
-          }
-        } catch (counterErr) {
-          console.warn('Could not load YouTube/counterbalance suggestions:', counterErr)
+        if (latestWithSuggestions) {
+          setYouTubeAgentResult({
+            query: latestWithSuggestions.recommendation_json?.youtubeQuery,
+            configured: latestWithSuggestions.recommendation_json?.youtubeConfigured,
+            recommendation: latestWithSuggestions.recommendation_json,
+            items: latestWithSuggestions.recommendation_json?.contentSuggestions || [],
+          })
+        } else {
+          const youtubeResult = await runChildYouTubeAgent(currentChild.id, { maxResults: 6 })
+          setYouTubeAgentResult({
+            query: youtubeResult.query,
+            configured: youtubeResult.configured,
+            recommendation: youtubeResult.recommendation,
+            items: youtubeResult.items || [],
+          })
         }
-
-        const items = await pb.collection('content_items').getFullList({
-          expand: 'creator',
-          sort: '-created',
-          limit: 10,
-        })
-        setContentItems(items)
+      } catch (counterErr) {
+        console.warn('Could not load YouTube/counterbalance suggestions:', counterErr)
       }
+
+      const items = await pb.collection('content_items').getFullList({
+        expand: 'creator',
+        sort: '-created',
+        limit: 6,
+      })
+      setContentItems(items)
     } catch (err) {
       console.error(err)
     }
@@ -148,7 +180,7 @@ export default function Resultado() {
       try {
         const data = await pb.collection('scientific_library').getFullList({ sort: '-created' })
         setLibrary(data)
-      } catch (err) {
+      } catch (_err) {
         toast({
           title: 'Erro de conexão',
           description: 'Não foi possível carregar as referências científicas.',
@@ -182,7 +214,7 @@ export default function Resultado() {
 
   if (isAnalyzing) {
     return (
-      <div className="max-w-3xl mx-auto mt-20 p-6">
+      <div className="mx-auto mt-20 max-w-3xl p-6">
         <AnaliseProcessando />
       </div>
     )
@@ -190,118 +222,15 @@ export default function Resultado() {
 
   const modalChild = child || {
     id: 'child-1',
-    name: 'Perfil Analisado',
+    name: 'Perfil analisado',
     birth_date: '',
     parent: '',
   }
 
-  const analysisScores = aiResults.analysisResult?.scores || []
-  const getAnalysisScore = (keywords: string[]) => {
-    const match = analysisScores.find((score) =>
-      keywords.some((keyword) =>
-        score.dimension.toLowerCase().includes(keyword.toLowerCase()),
-      ),
-    )
-    return match?.score ?? null
-  }
-
-  const exposureScore =
-    riskProfile?.exposure_score || getAnalysisScore(['comparação', 'social', 'pressão']) || 85
-  const distortionScore =
-    riskProfile?.distortion_score ||
-    getAnalysisScore(['hiperestimulação', 'algorítmica', 'atenção']) ||
-    70
-  const instabilityScore =
-    riskProfile?.instability_score || getAnalysisScore(['sono', 'ritmo', 'impacto']) || 75
-  const rationaleJson = riskProfile?.rationale_json || {}
+  const analysisResult = aiResults.analysisResult || null
   const riskLevel = analysis?.risk_level || 'High'
-
-  const translateRisk = (level: string) => {
-    const map: Record<string, string> = {
-      Low: 'Baixo',
-      Medium: 'Médio',
-      High: 'Alto',
-      Critical: 'Crítico',
-    }
-    return map[level] || level
-  }
   const translatedRisk = translateRisk(riskLevel)
-
-  const propositoLinks = [
-    { title: 'Huberman Lab - Otimização de Rotina', url: 'https://youtube.com', type: 'video' },
-    {
-      title: 'Eslen Delanogare - Neurociência e Disciplina',
-      url: 'https://youtube.com',
-      type: 'channel',
-    },
-    { title: 'Jocko Podcast - Disciplina é Liberdade', url: 'https://youtube.com', type: 'video' },
-    {
-      title: 'Artigo: O poder dos hábitos na juventude',
-      url: 'https://example.com',
-      type: 'article',
-    },
-    { title: 'David Goggins - Mentalidade de Ferro', url: 'https://youtube.com', type: 'video' },
-  ]
-
-  const valorLinks = [
-    { title: 'Brasil Paralelo - A Primeira Arte', url: 'https://youtube.com', type: 'video' },
-    {
-      title: 'Jordan Peterson - Assuma Responsabilidade',
-      url: 'https://youtube.com',
-      type: 'video',
-    },
-    { title: 'Guia de Cidadania e Voluntariado', url: 'https://example.com', type: 'article' },
-    {
-      title: 'Instituto Augusto Cury - Gestão da Emoção',
-      url: 'https://youtube.com',
-      type: 'channel',
-    },
-    { title: 'Simon Sinek - O Jogo Infinito', url: 'https://youtube.com', type: 'video' },
-  ]
-
-  const insightsLinks = [
-    {
-      title: 'Center for Humane Technology - Algoritmos',
-      url: 'https://humanetech.com',
-      type: 'site',
-    },
-    {
-      title: 'The Social Dilemma - Impacto Algorítmico',
-      url: 'https://thesocialdilemma.com',
-      type: 'site',
-    },
-    {
-      title: 'Jonathan Haidt - Redes Sociais e Ansiedade',
-      url: 'https://youtube.com',
-      type: 'video',
-    },
-    { title: 'Estudo: Dopamina e Vídeos Curtos', url: 'https://example.com', type: 'article' },
-    { title: 'Nature: Redução de Atenção Sustentada', url: 'https://nature.com', type: 'article' },
-  ]
-
-  const protecaoLinks = [
-    {
-      title: 'Child Mind Institute - Guias de Resiliência',
-      url: 'https://childmind.org',
-      type: 'site',
-    },
-    {
-      title: 'TED: Como construir resiliência emocional',
-      url: 'https://youtube.com',
-      type: 'video',
-    },
-    {
-      title: 'Artigo: A importância do jantar em família',
-      url: 'https://example.com',
-      type: 'article',
-    },
-    {
-      title: 'Guia Prático de Desintoxicação Digital',
-      url: 'https://example.com',
-      type: 'article',
-    },
-    { title: 'Podcast: Criando filhos antifrágeis', url: 'https://youtube.com', type: 'video' },
-  ]
+  const rationaleJson = riskProfile?.rationale_json || {}
 
   const recommendation =
     youtubeAgentResult?.recommendation || counterInterventions[0]?.recommendation_json || null
@@ -322,20 +251,101 @@ export default function Resultado() {
             : item.resourceType === 'video'
               ? 'video'
               : 'site',
+      description: item.description,
+      source: item.channelTitle || item.platform,
     }))
 
-  const dynamicPropositoLinks: ResultLink[] =
-    youtubeLinks.slice(0, 3).length > 0
-      ? youtubeLinks.slice(0, 3)
-      : (propositoLinks as ResultLink[])
+  const fallbackCurationLinks: ResultLink[] = [
+    {
+      title: 'Rotina saudável para adolescentes',
+      url: 'https://www.youtube.com/results?search_query=rotina+saudavel+adolescentes',
+      type: 'video',
+    },
+    {
+      title: 'Esportes e disciplina para jovens',
+      url: 'https://www.youtube.com/results?search_query=esportes+disciplina+jovens',
+      type: 'video',
+    },
+    {
+      title: 'Ciência e curiosidade para adolescentes',
+      url: 'https://www.youtube.com/results?search_query=ciencia+para+adolescentes',
+      type: 'video',
+    },
+  ]
 
-  const dynamicValorLinks: ResultLink[] =
-    youtubeLinks.slice(3, 6).length > 0
-      ? youtubeLinks.slice(3, 6)
-      : (valorLinks as ResultLink[])
+  const curatorLinks = youtubeLinks.length > 0 ? youtubeLinks : fallbackCurationLinks
+
+  const displayScores: DisplayScore[] = useMemo(() => {
+    if (analysisResult?.scores?.length) {
+      return analysisResult.scores.map((score) => {
+        const normalized = score.dimension
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+
+        let rationale = ''
+        if (normalized.includes('social') || normalized.includes('comparacao')) {
+          rationale = rationaleJson?.exposure?.description || ''
+        } else if (
+          normalized.includes('algoritmica') ||
+          normalized.includes('estimula') ||
+          normalized.includes('atencao')
+        ) {
+          rationale = rationaleJson?.distortion?.description || ''
+        } else if (normalized.includes('sono') || normalized.includes('ritmo')) {
+          rationale = rationaleJson?.instability?.description || ''
+        } else if (normalized.includes('protecao')) {
+          rationale =
+            recommendation?.algorithmGoal ||
+            'O acompanhamento familiar, a rotina e a curadoria positiva são os principais vetores de proteção.'
+        }
+
+        return {
+          dimension: score.dimension,
+          score: score.score,
+          label: translateRisk(score.label),
+          description: score.description,
+          rationale,
+        }
+      })
+    }
+
+    return [
+      {
+        dimension: 'Exposição e comparação',
+        score: riskProfile?.exposure_score || 0,
+        label: translateRisk(riskLevel),
+        description: 'Score derivado do perfil de risco persistido.',
+        rationale: rationaleJson?.exposure?.description || '',
+      },
+      {
+        dimension: 'Distorção cognitiva',
+        score: riskProfile?.distortion_score || 0,
+        label: translateRisk(riskLevel),
+        description: 'Score derivado do perfil de risco persistido.',
+        rationale: rationaleJson?.distortion?.description || '',
+      },
+      {
+        dimension: 'Instabilidade e ritmo',
+        score: riskProfile?.instability_score || 0,
+        label: translateRisk(riskLevel),
+        description: 'Score derivado do perfil de risco persistido.',
+        rationale: rationaleJson?.instability?.description || '',
+      },
+    ].filter((item) => item.score > 0)
+  }, [analysisResult, rationaleJson, recommendation, riskLevel, riskProfile])
+
+  const sourceLabel =
+    recommendation?.contentSource === 'youtube_api'
+      ? 'YouTube Data API'
+      : recommendation?.contentSource === 'manual_fallback'
+        ? 'Curadoria manual de fallback'
+        : youtubeAgentResult?.configured
+          ? 'Agente YouTube configurado'
+          : 'Curadoria local'
 
   const renderLinks = (links: ResultLink[], colorClass: string) => (
-    <ul className="space-y-2 mt-3">
+    <ul className="mt-3 space-y-2">
       {links.map((link, idx) => (
         <li key={idx}>
           <a
@@ -343,21 +353,26 @@ export default function Resultado() {
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
-              'flex items-center gap-2 text-xs hover:underline transition-colors group',
+              'group flex items-start gap-2 text-xs transition-colors hover:underline',
               colorClass,
             )}
           >
-            <span className="bg-background shadow-sm p-1 rounded text-muted-foreground group-hover:text-current transition-colors border">
+            <span className="rounded border bg-background p-1 text-muted-foreground shadow-sm transition-colors group-hover:text-current">
               {link.type === 'video' ? (
-                <PlayCircle className="w-3 h-3" />
+                <PlayCircle className="h-3 w-3" />
               ) : link.type === 'article' ? (
-                <BookOpen className="w-3 h-3" />
+                <BookOpen className="h-3 w-3" />
               ) : (
-                <Globe className="w-3 h-3" />
+                <Globe className="h-3 w-3" />
               )}
             </span>
-            <span className="truncate flex-1 font-medium">{link.title}</span>
-            <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{link.title}</span>
+              {link.source ? (
+                <span className="block truncate text-[11px] opacity-75">{link.source}</span>
+              ) : null}
+            </span>
+            <ExternalLink className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
           </a>
         </li>
       ))}
@@ -365,50 +380,51 @@ export default function Resultado() {
   )
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-10 animate-fade-in">
+    <div className="mx-auto max-w-5xl space-y-8 animate-fade-in pb-10">
       <div className="-mb-4">
         <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
           <Link to="/dashboard">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao Dashboard
+            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar ao Dashboard
           </Link>
         </Button>
       </div>
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 bg-background pt-2 pb-4 border-b">
+
+      <div className="flex flex-col justify-between gap-4 border-b bg-background pb-4 pt-2 sm:flex-row sm:items-start">
         <div>
-          <h2 className="text-3xl font-serif font-bold text-primary">Mapeamento e Orientação</h2>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <p className="text-muted-foreground text-sm">
+          <h2 className="font-serif text-3xl font-bold text-primary">Mapeamento e Orientação</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="text-sm text-muted-foreground">
               Análise de influência gerada para {child?.name || 'Perfil'}
             </p>
             <Badge
               variant="outline"
-              className="bg-rose-100 text-rose-800 border-rose-300 font-bold ml-1"
+              className="ml-1 border-rose-300 bg-rose-100 font-bold text-rose-800"
             >
-              <UserX className="w-3 h-3 mr-1" />{' '}
-              <TermTooltip term="Risco Expositivo">Risco {translatedRisk}</TermTooltip>
+              <UserX className="mr-1 h-3 w-3" /> Risco {translatedRisk}
             </Badge>
           </div>
-          {platforms.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {platforms.map((p: string) => (
+          {platforms.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {platforms.map((platform: string) => (
                 <Badge
-                  key={p}
+                  key={platform}
                   variant="secondary"
-                  className="bg-secondary/30 text-secondary-foreground border-secondary/50 shadow-sm"
+                  className="border-secondary/50 bg-secondary/30 text-secondary-foreground shadow-sm"
                 >
-                  {p}
+                  {platform}
                 </Badge>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-2 sm:mt-0">
+
+        <div className="mt-2 flex flex-col gap-3 sm:mt-0 sm:flex-row">
           <Button variant="outline" size="lg" onClick={() => setExportOpen(true)}>
-            <Download className="w-5 h-5 mr-2" /> Exportar Relatório
+            <Download className="mr-2 h-5 w-5" /> Exportar Relatório
           </Button>
-          <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-all">
+          <Button asChild size="lg" className="shadow-md transition-all hover:shadow-lg">
             <Link to="/plano">
-              <Bot className="w-5 h-5 mr-2" /> Ver Plano de Ação
+              <Bot className="mr-2 h-5 w-5" /> Ver Plano de Ação
             </Link>
           </Button>
         </div>
@@ -416,462 +432,259 @@ export default function Resultado() {
 
       <ReportExportModal child={modalChild} open={exportOpen} onOpenChange={setExportOpen} />
 
-      <Alert className="bg-amber-50 border-amber-200 text-amber-900 shadow-sm animate-fade-in-down mb-6">
-        <ShieldCheck className="w-5 h-5 text-amber-600" />
-        <AlertTitle className="text-base font-bold flex items-center gap-2">
+      <Alert className="mb-6 border-amber-200 bg-amber-50 text-amber-900 shadow-sm animate-fade-in-down">
+        <ShieldCheck className="h-5 w-5 text-amber-600" />
+        <AlertTitle className="flex items-center gap-2 text-base font-bold">
           Aviso Legal e Educacional
         </AlertTitle>
         <AlertDescription className="mt-1 text-sm leading-relaxed">
           Esta ferramenta possui caráter estritamente educativo e informativo, não substituindo o
-          suporte e a avaliação clínica final de profissionais de saúde (psicólogos/psiquiatras). Os
-          dados e mapeamentos apresentados destinam-se exclusivamente ao Suporte à Decisão Clínica.
+          suporte e a avaliação clínica final de profissionais de saúde. Os dados e mapeamentos
+          apresentados destinam-se exclusivamente ao suporte à decisão clínica.
         </AlertDescription>
       </Alert>
 
       {(riskLevel === 'High' || riskLevel === 'Critical') && (
-        <Alert className="bg-rose-50 border-rose-200 text-rose-900 shadow-sm animate-fade-in-down">
-          <Stethoscope className="w-5 h-5 text-rose-600" />
-          <AlertTitle className="text-base font-bold flex items-center gap-2">
+        <Alert className="border-rose-200 bg-rose-50 text-rose-900 shadow-sm animate-fade-in-down">
+          <Stethoscope className="h-5 w-5 text-rose-600" />
+          <AlertTitle className="flex items-center gap-2 text-base font-bold">
             Indicadores de Risco Severo Identificados
           </AlertTitle>
           <AlertDescription className="mt-2 text-sm leading-relaxed">
-            O motor detectou menções e interações associadas a{' '}
-            <strong>padrões de conteúdo de risco severo</strong>. Recomendamos buscar{' '}
-            <strong>apoio de profissionais de saúde especializados</strong> paralelamente ao
+            O motor detectou menções e interações associadas a padrões de conteúdo de risco severo.
+            Recomendamos buscar apoio de profissionais de saúde especializados paralelamente ao
             rebalanceamento digital.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* ── AGENTE DE RESULTADO (IA) ── */}
-      {aiResults.analysisResult && (
+      {analysisResult && (
         <AIResultPanel
-          analysisResult={aiResults.analysisResult}
+          analysisResult={analysisResult}
           childName={
-            childrenProfiles.find((c) => c.id === aiResults.analyzedChildId)?.name ||
+            childrenProfiles.find((entry) => entry.id === aiResults.analyzedChildId)?.name ||
             child?.name ||
-            'Jovem Analisado'
+            'Jovem analisado'
           }
         />
       )}
 
-      <div className="space-y-6">
-        <h3 className="text-2xl font-serif font-bold text-primary flex items-center gap-2">
-          <Activity className="w-6 h-6 text-secondary" /> Detalhamento de Riscos Identificados
-        </h3>
-
-        {/* Risk 1 */}
-        <Card className="shadow-md border-l-4 border-l-destructive overflow-hidden">
-          <div className="flex flex-col md:flex-row">
-            <div className="p-6 md:w-1/3 bg-muted/10 border-b md:border-b-0 md:border-r border-border/50">
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <HeartPulse className="w-5 h-5 text-destructive" />
-                <span className="font-semibold uppercase tracking-wider text-xs">
-                  Risco de Autoimagem
-                </span>
-              </div>
-              <h4 className="text-xl font-bold text-foreground mb-1">Exposição e Comparação</h4>
-              <div className="text-3xl font-bold text-destructive mb-3">{exposureScore}%</div>
-              <Progress value={exposureScore} className="h-2 [&>div]:bg-destructive mb-6" />
-
-              <Button
-                variant="outline"
-                className="w-full bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
-                onClick={() => {
-                  const ref = library.find((l) => l.axis === 'Psicologia') || library[0]
-                  if (ref) setPreviewRef(ref)
-                }}
-              >
-                <BookText className="w-4 h-4 mr-2" /> Bases Científicas
-              </Button>
-            </div>
-            <div className="p-6 md:w-2/3 space-y-5">
-              <div>
-                <h5 className="text-sm font-bold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                  <Fingerprint className="w-4 h-4" /> Justificativa Objetiva
-                </h5>
-                <div className="text-sm text-foreground leading-relaxed bg-background p-4 rounded-lg border shadow-sm">
-                  {rationaleJson?.exposure?.description ||
-                    'Distorção da autoimagem baseada em padrões algorítmicos. O consumo repetido de conteúdos focados em estética inatingível, filtros de beleza artificial e vídeos de comparação social afeta diretamente a percepção corporal e a autoestima do jovem.'}
-                </div>
-              </div>
-              <div>
-                <h5 className="text-sm font-bold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                  <Microscope className="w-4 h-4" /> Evidências Digitais (Amostra)
-                </h5>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                  {contentItems.length > 0 ? (
-                    contentItems.slice(0, 2).map((item, i) => (
-                      <div
-                        key={item.id || i}
-                        className="flex items-center justify-between p-3 bg-muted/30 border rounded-md text-sm"
-                      >
-                        <span className="font-medium truncate mr-4">
-                          {item.title || item.raw_text?.substring(0, 40) + '...'}
-                        </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {item.expand?.creator?.platform || 'Rede Social'}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] border-destructive text-destructive bg-destructive/10"
-                          >
-                            Alto Impacto
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-between p-3 bg-muted/30 border rounded-md text-sm">
-                      <span className="font-medium">Trend de Transformação Facial (Filtros)</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px]">
-                          TikTok
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-destructive text-destructive bg-destructive/10"
-                        >
-                          Alto Impacto
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Risk 2 */}
-        <Card className="shadow-md border-l-4 border-l-amber-500 overflow-hidden">
-          <div className="flex flex-col md:flex-row">
-            <div className="p-6 md:w-1/3 bg-muted/10 border-b md:border-b-0 md:border-r border-border/50">
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <BrainCircuit className="w-5 h-5 text-amber-500" />
-                <span className="font-semibold uppercase tracking-wider text-xs">
-                  Risco Cognitivo
-                </span>
-              </div>
-              <h4 className="text-xl font-bold text-foreground mb-1">Distorção Cognitiva</h4>
-              <div className="text-3xl font-bold text-amber-500 mb-3">{distortionScore}%</div>
-              <Progress value={distortionScore} className="h-2 [&>div]:bg-amber-500 mb-6" />
-
-              <Button
-                variant="outline"
-                className="w-full bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
-                onClick={() => {
-                  const ref =
-                    library.find((l) => l.axis === 'Neurociência') || library[1] || library[0]
-                  if (ref) setPreviewRef(ref)
-                }}
-              >
-                <BookText className="w-4 h-4 mr-2" /> Bases Científicas
-              </Button>
-            </div>
-            <div className="p-6 md:w-2/3 space-y-5">
-              <div>
-                <h5 className="text-sm font-bold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                  <Fingerprint className="w-4 h-4" /> Justificativa Objetiva
-                </h5>
-                <div className="text-sm text-foreground leading-relaxed bg-background p-4 rounded-lg border shadow-sm">
-                  {rationaleJson?.distortion?.description ||
-                    'Identificamos um padrão de conformismo e passividade no consumo digital. Os algoritmos estão priorizando uma hiper-estimulação rápida (vídeos curtos em loop), o que reduz progressivamente a capacidade de atenção sustentada e o pensamento crítico.'}
-                </div>
-              </div>
-              <div>
-                <h5 className="text-sm font-bold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                  <Microscope className="w-4 h-4" /> Evidências Digitais (Amostra)
-                </h5>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                  {contentItems.length > 2 ? (
-                    contentItems.slice(2, 4).map((item, i) => (
-                      <div
-                        key={item.id || i}
-                        className="flex items-center justify-between p-3 bg-muted/30 border rounded-md text-sm"
-                      >
-                        <span className="font-medium truncate mr-4">
-                          {item.title || item.raw_text?.substring(0, 40) + '...'}
-                        </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {item.expand?.creator?.platform || 'Rede Social'}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] border-amber-500 text-amber-700 bg-amber-50"
-                          >
-                            Atenção Curta
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-between p-3 bg-muted/30 border rounded-md text-sm">
-                      <span className="font-medium">Cortes de Gameplay com vídeos simultâneos</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px]">
-                          YouTube
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-amber-500 text-amber-700 bg-amber-50"
-                        >
-                          Passividade
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Risk 3 */}
-        <Card className="shadow-md border-l-4 border-l-destructive overflow-hidden">
-          <div className="flex flex-col md:flex-row">
-            <div className="p-6 md:w-1/3 bg-muted/10 border-b md:border-b-0 md:border-r border-border/50">
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <Scale className="w-5 h-5 text-destructive" />
-                <span className="font-semibold uppercase tracking-wider text-xs">
-                  Risco Comportamental
-                </span>
-              </div>
-              <h4 className="text-xl font-bold text-foreground mb-1">
-                Instabilidade / Polarização
-              </h4>
-              <div className="text-3xl font-bold text-destructive mb-3">{instabilityScore}%</div>
-              <Progress value={instabilityScore} className="h-2 [&>div]:bg-destructive mb-6" />
-
-              <Button
-                variant="outline"
-                className="w-full bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
-                onClick={() => {
-                  const ref =
-                    library.find((l) => l.axis === 'Psiquiatria') || library[2] || library[0]
-                  if (ref) setPreviewRef(ref)
-                }}
-              >
-                <BookText className="w-4 h-4 mr-2" /> Bases Científicas
-              </Button>
-            </div>
-            <div className="p-6 md:w-2/3 space-y-5">
-              <div>
-                <h5 className="text-sm font-bold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                  <Fingerprint className="w-4 h-4" /> Justificativa Objetiva
-                </h5>
-                <div className="text-sm text-foreground leading-relaxed bg-background p-4 rounded-lg border shadow-sm">
-                  {rationaleJson?.instability?.description ? (
-                    <div>{rationaleJson.instability.description}</div>
-                  ) : (
-                    <div>
-                      Aumento no risco de instabilidade emocional devido à exposição contínua a{' '}
-                      <TermTooltip term="Narrativa Antagonista">Narrativa Antagonista</TermTooltip>.
-                      O jovem está consumindo retóricas de "nós contra eles", o que frequentemente
-                      gera ansiedade social, isolamento e uma visão de mundo hiper-polarizada.
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <h5 className="text-sm font-bold uppercase text-muted-foreground mb-2 flex items-center gap-2">
-                  <Microscope className="w-4 h-4" /> Evidências Digitais (Amostra)
-                </h5>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                  {contentItems.length > 4 ? (
-                    contentItems.slice(4, 6).map((item, i) => (
-                      <div
-                        key={item.id || i}
-                        className="flex items-center justify-between p-3 bg-muted/30 border rounded-md text-sm"
-                      >
-                        <span className="font-medium truncate mr-4">
-                          {item.title || item.raw_text?.substring(0, 40) + '...'}
-                        </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {item.expand?.creator?.platform || 'Rede Social'}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] border-destructive text-destructive bg-destructive/10"
-                          >
-                            Polarização
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-between p-3 bg-muted/30 border rounded-md text-sm">
-                      <span className="font-medium">Cortes de Opinião Radical (Redpill/Sigma)</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-[10px]">
-                          Instagram
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-destructive text-destructive bg-destructive/10"
-                        >
-                          Risco Crítico
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <ResultadoMentorPanel platforms={platforms} />
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-l-4 border-l-destructive shadow-md hover:shadow-lg transition-shadow flex flex-col">
-          <CardHeader className="bg-destructive/5 pb-4 border-b border-destructive/10">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-6 h-6" />
-              <CardTitle className="text-lg">Insights e Padrões</CardTitle>
-            </div>
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Activity className="h-5 w-5 text-secondary" /> Leitura Operacional do Agente
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 space-y-6 flex-1">
-            <div className="space-y-2">
-              <span className="text-xs uppercase font-bold text-destructive">
-                Resumo da Inteligência
-              </span>
-              <h3 className="font-bold text-xl text-foreground">Comportamento Analisado</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {analysis?.insights_summary ||
-                  recommendation?.guardianSummary ||
-                  aiResults.analysisResult?.summary ||
-                  'Consumo de vídeos ultra-rápidos e comportamentos anômalos detectados. A arquitetura de escolhas do algoritmo está favorecendo a hiper-estimulação e o engajamento reativo, diminuindo a capacidade de atenção sustentada.'}
-              </p>
-              <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                  Referências Práticas e Teóricas
-                </span>
-                {renderLinks(insightsLinks, 'text-destructive')}
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Fonte atual
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">{sourceLabel}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Query usada
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">
+                  {recommendation?.youtubeQuery || youtubeAgentResult?.query || 'Não definida'}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Plataforma priorizada
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">
+                  {recommendation?.platform || platforms[0] || 'Não informada'}
+                </p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <span className="text-xs uppercase font-bold text-destructive">
-                Fatores de Proteção
-              </span>
-              <h3 className="font-bold text-xl text-foreground">
-                Score de Resiliência: {riskProfile?.protective_score || 30}/100
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {recommendation?.algorithmGoal ||
-                  `A capacidade atual de lidar com influências nocivas é limitada. O score ${
-                    riskProfile?.protective_score || 30
-                  } indica uma necessidade urgente de intervenção para reforçar vínculos reais e construir novas rotinas offline estruturadas.`}
+            <div className="rounded-xl border bg-background p-4 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Resumo para o responsável
               </p>
-              <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                  Recomendações e Lógica
-                </span>
-                {renderLinks(protecaoLinks, 'text-destructive')}
+              <p className="mt-2 text-sm leading-relaxed text-foreground">
+                {recommendation?.guardianSummary ||
+                  analysis?.insights_summary ||
+                  analysisResult?.summary ||
+                  'O agente ainda não consolidou um resumo operacional específico para este caso.'}
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border bg-primary/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                  Narrativa de contraponto
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-foreground">
+                  {recommendation?.counterNarrative ||
+                    'Ainda não há narrativa específica gerada para este perfil.'}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-emerald-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                  Objetivo algorítmico
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-foreground">
+                  {recommendation?.algorithmGoal ||
+                    'Reequilibrar gradualmente o repertório consumido com estímulos mais saudáveis e previsíveis.'}
+                </p>
               </div>
             </div>
+
+            {recommendation?.recommendedActions?.length ? (
+              <div className="rounded-xl border bg-muted/10 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Ações recomendadas agora
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {recommendation.recommendedActions.map((action, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm text-foreground">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-500 shadow-md hover:shadow-lg transition-shadow flex flex-col">
-          <CardHeader className="bg-emerald-50 pb-4 border-b border-emerald-100">
-            <div className="flex items-center gap-2 text-emerald-700">
-              <ShieldCheck className="w-6 h-6" />
-              <CardTitle className="text-lg">Curadoria Positiva</CardTitle>
-            </div>
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Bot className="h-5 w-5 text-secondary" /> Curadoria e Entrega
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 space-y-6 flex-1">
-            <div className="space-y-2">
-              <span className="text-xs uppercase font-bold text-emerald-600">
-                Sugestão de Curadoria: Propósito e Foco
-              </span>
-              <h3 className="font-bold text-xl text-emerald-900">
-                {recommendation?.youtubeQuery
-                  ? `Resultados guiados por: ${recommendation.youtubeQuery}`
-                  : 'Ciência da Rotina & Disciplina'}
-              </h3>
-              <p className="text-sm text-emerald-800/80 leading-relaxed">
-                {recommendation?.counterNarrative ||
-                  'Apresente conteúdos com apelo estético jovem sobre esportes, mentalidade prática, superação de desafios e responsabilidade pessoal para reconfigurar o algoritmo positivamente.'}
+          <CardContent className="space-y-5">
+            <div className="rounded-xl border bg-emerald-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                Mensagem sugerida
               </p>
-              <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100">
-                <span className="text-[10px] uppercase font-bold text-emerald-700/70">
-                  Exemplos Práticos para Consumo
-                </span>
-                {renderLinks(dynamicPropositoLinks, 'text-emerald-700')}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-xs uppercase font-bold text-emerald-600">
-                Sugestão de Curadoria: Valor Relacional
-              </span>
-              <h3 className="font-bold text-xl text-emerald-900">
-                {recommendation?.contentSource === 'youtube_api'
-                  ? 'Curadoria oficial da YouTube Data API'
-                  : 'Cidadania e Vínculos'}
-              </h3>
-              <p className="text-sm text-emerald-800/80 leading-relaxed">
+              <p className="mt-2 text-sm leading-relaxed text-foreground">
                 {recommendation?.deliveryMessage ||
-                  'Incentive documentários profundos e recortes de podcasts que valorizem a estabilidade familiar, o pensamento crítico de longo prazo e o respeito genuíno na comunidade.'}
+                  'Ainda não há uma mensagem operacional específica pronta para envio.'}
               </p>
-              <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100">
-                <span className="text-[10px] uppercase font-bold text-emerald-700/70">
-                  Exemplos Práticos para Consumo
-                </span>
-                {renderLinks(dynamicValorLinks, 'text-emerald-700')}
+            </div>
+
+            <div className="rounded-xl border bg-background p-4 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Conteúdos positivos sugeridos
+              </p>
+              {renderLinks(curatorLinks, 'text-emerald-700')}
+            </div>
+
+            <div className="rounded-xl border bg-background p-4 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Evidências digitais reais carregadas
+              </p>
+              <div className="mt-3 space-y-2">
+                {contentItems.length > 0 ? (
+                  contentItems.map((item) => (
+                    <div key={item.id} className="rounded-lg border bg-muted/20 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-foreground">
+                          {item.title || item.raw_text?.slice(0, 64) || 'Registro sem título'}
+                        </span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {item.expand?.creator?.platform || 'Origem não identificada'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma evidência digital real foi sincronizada neste ambiente ainda.
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="pt-8 border-t mt-8 animate-fade-in">
-        <h3 className="text-2xl font-serif font-bold text-primary mb-6 flex items-center gap-3">
-          <BookText className="w-6 h-6 text-secondary" /> Referências Científicas
+      {displayScores.length > 0 ? (
+        <div className="space-y-6">
+          <h3 className="flex items-center gap-2 font-serif text-2xl font-bold text-primary">
+            <Activity className="h-6 w-6 text-secondary" /> Dimensões de risco do caso atual
+          </h3>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {displayScores.map((score) => (
+              <Card key={score.dimension} className="shadow-sm">
+                <CardContent className="space-y-4 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{score.dimension}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{score.description}</p>
+                    </div>
+                    <Badge variant="outline" className={cn('font-bold', getScoreColor(score.score))}>
+                      {score.label}
+                    </Badge>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <span className="font-medium text-muted-foreground">Score</span>
+                      <span className="font-bold text-foreground">{score.score}/100</span>
+                    </div>
+                    <Progress value={score.score} className={cn('h-2 bg-muted', getProgressClass(score.score))} />
+                  </div>
+
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                      <Fingerprint className="h-3.5 w-3.5" /> Leitura objetiva
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground">
+                      {score.rationale || 'Sem justificativa específica persistida para esta dimensão.'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-8 border-t pt-8 animate-fade-in">
+        <h3 className="mb-6 flex items-center gap-3 font-serif text-2xl font-bold text-primary">
+          <BookText className="h-6 w-6 text-secondary" /> Referências Científicas
         </h3>
         {library.length === 0 ? (
-          <p className="text-muted-foreground bg-muted/30 p-4 rounded-lg border text-center text-sm">
-            Referência em revisão bibliográfica
+          <p className="rounded-lg border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+            Referência em revisão bibliográfica.
           </p>
         ) : (
           <div className="grid gap-4">
             {library.map((ref) => (
-              <Card
-                key={ref.id}
-                className="shadow-sm border-border/50 hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                  <div className="space-y-1.5 flex-1">
-                    <h4 className="font-bold text-base text-foreground leading-tight">
-                      {ref.title}
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+              <Card key={ref.id} className="border-border/50 shadow-sm transition-shadow hover:shadow-md">
+                <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+                  <div className="flex-1 space-y-1.5">
+                    <h4 className="text-base font-bold leading-tight text-foreground">{ref.title}</h4>
+                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                       {ref.summary}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-3 items-start sm:items-end shrink-0 w-full sm:w-auto">
+                  <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:items-end">
                     <Badge
                       variant="outline"
-                      className={`whitespace-nowrap ${getEvidenceColor(ref.evidence_level)}`}
+                      className={cn('whitespace-nowrap', getEvidenceColor(ref.evidence_level))}
                     >
                       {ref.evidence_level}
                     </Badge>
-                    <div className="flex flex-col gap-2 w-full">
+                    <div className="flex w-full flex-col gap-2">
                       <Button
                         onClick={() => setPreviewRef(ref)}
                         variant="secondary"
                         size="sm"
                         className="w-full bg-primary/10 text-primary hover:bg-primary/20"
                       >
-                        Pré-visualizar <BookText className="w-3.5 h-3.5 ml-1.5" />
+                        Pré-visualizar <BookText className="ml-1.5 h-3.5 w-3.5" />
                       </Button>
-                      {ref.content_link && (
+                      {ref.content_link ? (
                         <Button
                           asChild
                           variant="outline"
@@ -879,10 +692,10 @@ export default function Resultado() {
                           className="w-full border-primary/20 hover:bg-primary/5"
                         >
                           <a href={ref.content_link} target="_blank" rel="noopener noreferrer">
-                            Estudo Original <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                            Estudo Original <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
                           </a>
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </CardContent>
